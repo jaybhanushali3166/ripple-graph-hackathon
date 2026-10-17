@@ -18,7 +18,7 @@ export type HistoryResponse = { evidence_version: string; forecasts: Forecast[] 
 export type PreviewRequest = { text: string; source_title: string };
 export type DecisionPreview = {
   preview_id: string; evidence_version: string; expires_at: number;
-  proposal: { work_item_id: string; available_at: number; effective_at: number; supersedes_id: string; owner_id: string; evidence_quote: string };
+  proposal: { work_item_id: string; available_at: number; effective_at: number; supersedes_id: string | null; owner_id: string; evidence_quote: string };
   warnings: string[];
 };
 export type ConfirmRequest = { preview_id: string; expected_version: string; idempotency_key: string };

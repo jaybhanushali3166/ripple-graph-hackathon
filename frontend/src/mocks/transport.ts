@@ -60,9 +60,63 @@ export const demoTransport: Transport = async (path, init) => {
     const citations = selected.citations;
     const conflict = selected.status === 'date_conflict';
     const decision = changed ? 'dec_permissions_revised' : 'DEC-12';
-    const draft = (kind: Draft['kind']): Draft => ({ kind, commitment_id: selected.commitment_id, assignee_id: kind === 'internal_escalation' ? selected.engineering_owner?.id ?? null : selected.account_owner?.id ?? null, body: kind === 'internal_escalation' ? `Hi ${selected.engineering_owner?.name ?? 'team'},\n\n${selected.customer.name}’s ${selected.title.toLowerCase()} promise is due ${new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', dateStyle: 'long' }).format(selected.due_at)}. ${conflict ? 'The permissions forecast is now October 28, 2026, later than that promise. The recorded feature date has not been recalculated.' : 'No date conflict is detected on the recorded path.'}\n\nPlease confirm the delivery assumptions and any replanning needed before the account team gives an update.` : `Hi ${selected.account_owner?.name ?? 'team'},\n\nPlease review ${selected.customer.name}’s ${selected.title.toLowerCase()} commitment. ${conflict ? 'A required engineering dependency is forecast after the promised date. We are checking recovery options with engineering.' : 'No date conflict is detected on the recorded dependency path.'}\n\nConfirm the plan before communicating a revised delivery promise.`, citations, based_on_decision_ids: [conflict ? decision : `dec_baseline_${selected.paths[0].nodes[2].id}`] });
+    const draft = (kind: Draft['kind']): Draft => {
+      const isInternal = kind === 'internal_escalation';
+      const formattedDue = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Kolkata',
+        dateStyle: 'long',
+      }).format(selected.due_at);
+
+      const internalBody = `Hi ${selected.engineering_owner?.name ?? 'team'},\n\n` +
+        `${selected.customer.name}’s ${selected.title.toLowerCase()} promise is due ${formattedDue}. ` +
+        `${conflict ? 'The permissions forecast is now October 28, 2026, later than that promise. The recorded feature date has not been recalculated.' : 'No date conflict is detected on the recorded path.'}\n\n` +
+        `Please confirm the delivery assumptions and any replanning needed before the account team gives an update.`;
+
+      const customerBody = `Hi ${selected.account_owner?.name ?? 'team'},\n\n` +
+        `Please review ${selected.customer.name}’s ${selected.title.toLowerCase()} commitment. ` +
+        `${conflict ? 'A required engineering dependency is forecast after the promised date. We are checking recovery options with engineering.' : 'No date conflict is detected on the recorded dependency path.'}\n\n` +
+        `Confirm the plan before communicating a revised delivery promise.`;
+
+      return {
+        kind,
+        commitment_id: selected.commitment_id,
+        assignee_id: isInternal ? selected.engineering_owner?.id ?? null : selected.account_owner?.id ?? null,
+        body: isInternal ? internalBody : customerBody,
+        citations,
+        based_on_decision_ids: [conflict ? decision : `dec_baseline_${selected.paths[0].nodes[2].id}`],
+      };
+    };
+
     const partial = scenario === 'partial_ai';
-    const result: AgentResponse = { run_id: crypto.randomUUID(), evidence_version: version(), status: partial ? 'partial' : 'complete', answer: lineage ? (changed ? 'The revised permissions decision supersedes DEC-12 and establishes the October 28 forecast. The feature forecasts stay recorded at their prior dates; the discrepancy requires replanning.' : 'DEC-12 establishes the accepted October 21 permissions forecast. No revised decision is recorded in this baseline.') : `${selected.customer.name}: ${selected.reasons.join(' ')} Engineering: ${selected.engineering_owner?.name ?? 'needs verification'}. Account: ${selected.account_owner?.name ?? 'needs verification'}.`, citations: lineage ? [{ source_id: changed ? 'src_revised_permissions' : 'src_dec12', quote: changed ? canonicalNote : 'Approved in DEC-12: permissions service delivery is October 21, 2026. Owner: Priya.' }] : citations, drafts: lineage || partial ? [] : [draft('internal_escalation'), draft('customer_update')], tool_trace: [{ tool: lineage ? 'get_forecast_history' : 'get_evidence', arguments: { commitment_id: selected.commitment_id }, evidence_ids: citations.map(citation => citation.source_id), status: 'ok' }], warnings: ['Scripted development answer. No model or graph tool was called.', ...(partial ? ['Example partial output: drafting was unavailable.'] : [])] };
+    const answerText = lineage
+      ? (changed
+          ? 'The revised permissions decision supersedes DEC-12 and establishes the October 28 forecast. The feature forecasts stay recorded at their prior dates; the discrepancy requires replanning.'
+          : 'DEC-12 establishes the accepted October 21 permissions forecast. No revised decision is recorded in this baseline.')
+      : `${selected.customer.name}: ${selected.reasons.join(' ')} Engineering: ${selected.engineering_owner?.name ?? 'needs verification'}. Account: ${selected.account_owner?.name ?? 'needs verification'}.`;
+
+    const lineageCitations = [{
+      source_id: changed ? 'src_revised_permissions' : 'src_dec12',
+      quote: changed ? canonicalNote : 'Approved in DEC-12: permissions service delivery is October 21, 2026. Owner: Priya.',
+    }];
+
+    const result: AgentResponse = {
+      run_id: crypto.randomUUID(),
+      evidence_version: version(),
+      status: partial ? 'partial' : 'complete',
+      answer: answerText,
+      citations: lineage ? lineageCitations : citations,
+      drafts: lineage || partial ? [] : [draft('internal_escalation'), draft('customer_update')],
+      tool_trace: [{
+        tool: lineage ? 'get_forecast_history' : 'get_evidence',
+        arguments: { commitment_id: selected.commitment_id },
+        evidence_ids: citations.map(citation => citation.source_id),
+        status: 'ok',
+      }],
+      warnings: [
+        'Scripted development answer. No model or graph tool was called.',
+        ...(partial ? ['Example partial output: drafting was unavailable.'] : []),
+      ],
+    };
     return result;
   }
   if (path.startsWith('/actions?')) {

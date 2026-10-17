@@ -48,4 +48,33 @@ describe('immutable decision review', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Custom effective time requires review');
     expect(screen.getByLabelText('Approved engineering note')).toHaveValue('Approved delivery update.');
   });
+  it('renders "None recorded" when supersedes_id is null', async () => {
+    vi.mocked(previewDecision).mockResolvedValue({
+      ...preview(),
+      proposal: { ...preview().proposal, supersedes_id: null },
+    });
+    await openReview();
+    expect(await screen.findByText('None recorded')).toBeVisible();
+  });
+  it('reports idempotency_conflict without dropping the preview', async () => {
+    vi.mocked(previewDecision).mockResolvedValue(preview());
+    vi.mocked(confirmDecision).mockRejectedValue(new ApiError(409, 'idempotency_conflict', 'Key already used'));
+    const callbacks = await openReview();
+    await userEvent.click(await screen.findByRole('button', { name: 'Confirm reviewed update' }));
+    expect(await screen.findByText('Key already used')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Confirm reviewed update' })).toBeVisible();
+    expect(callbacks.onStale).not.toHaveBeenCalled();
+  });
+  it('allows abandoning an uncertain confirmation to unlock the dialog', async () => {
+    vi.mocked(previewDecision).mockResolvedValue(preview());
+    vi.mocked(confirmDecision).mockRejectedValue(new ApiError(0, 'network_error', 'Connection lost'));
+    await openReview();
+    await userEvent.click(await screen.findByRole('button', { name: 'Confirm reviewed update' }));
+    expect(await screen.findByText(/The confirmation outcome is unknown/i)).toBeVisible();
+    const abandonBtn = screen.getByRole('button', { name: 'Abandon update' });
+    expect(abandonBtn).toBeVisible();
+    await userEvent.click(abandonBtn);
+    expect(screen.queryByText(/The confirmation outcome is unknown/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Close' })).toBeEnabled();
+  });
 });

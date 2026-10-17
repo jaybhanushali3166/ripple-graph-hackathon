@@ -53,4 +53,44 @@ describe('grounded follow-ups', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Please verify the cited passage.');
     expect(screen.getByLabelText('Review and edit')).toHaveValue('Keep my reviewed wording.');
   });
+  it('allows saving a customer_update draft when account_owner is present even if engineering_owner is null', async () => {
+    const response = answer();
+    response.drafts = [{
+      kind: 'customer_update',
+      commitment_id: 'com_acme_sso',
+      assignee_id: 'person_maya',
+      body: 'Customer update ready.',
+      citations: [{ source_id: 'src_dec12', quote: 'Approved' }],
+      based_on_decision_ids: ['DEC-12'],
+    }];
+    vi.mocked(runAgent).mockResolvedValue(response);
+    vi.mocked(saveAction).mockResolvedValue({ action_id: 'act-1', status: 'reviewed', evidence_version: version, created_at: Date.now() });
+    panel({ ...impact(), engineering_owner: null, account_owner: { id: 'person_maya', name: 'Maya' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Affected promises & owners' }));
+    const saveButton = await screen.findByRole('button', { name: 'Save reviewed draft' });
+    expect(saveButton).toBeEnabled();
+    await userEvent.click(saveButton);
+    expect(saveAction).toHaveBeenCalledWith(expect.objectContaining({
+      kind: 'customer_update',
+      assignee_id: 'person_maya',
+      body: 'Customer update ready.',
+    }));
+  });
+  it('disables saving an internal_escalation draft when assignee does not match engineering owner', async () => {
+    const response = answer();
+    response.drafts = [{
+      kind: 'internal_escalation',
+      commitment_id: 'com_acme_sso',
+      assignee_id: 'person_wrong',
+      body: 'Mismatched assignee.',
+      citations: [{ source_id: 'src_dec12', quote: 'Approved' }],
+      based_on_decision_ids: ['DEC-12'],
+    }];
+    vi.mocked(runAgent).mockResolvedValue(response);
+    panel(impact());
+    await userEvent.click(screen.getByRole('button', { name: 'Affected promises & owners' }));
+    expect(await screen.findByRole('button', { name: 'Save reviewed draft' })).toBeDisabled();
+    expect(screen.getByText(/draft assignee/i)).toBeVisible();
+    expect(saveAction).not.toHaveBeenCalled();
+  });
 });

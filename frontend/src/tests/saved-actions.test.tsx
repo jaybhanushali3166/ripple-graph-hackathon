@@ -16,4 +16,13 @@ describe('stored action evidence', () => {
     render(<SavedActions commitmentId="com_acme_sso" version="old-version" revision={0} onSource={vi.fn()} onStale={onStale} />);
     await waitFor(() => expect(onStale).toHaveBeenCalledOnce());
   });
+  it('signals onStale at most once per mismatched version to prevent refresh loops', async () => {
+    vi.mocked(getActions).mockResolvedValue({ evidence_version: 'persistent-mismatch', actions: [] });
+    const onStale = vi.fn();
+    const { rerender } = render(<SavedActions commitmentId="com_acme_sso" version="old-version" revision={0} onSource={vi.fn()} onStale={onStale} />);
+    await waitFor(() => expect(onStale).toHaveBeenCalledOnce());
+    rerender(<SavedActions commitmentId="com_acme_sso" version="old-version" revision={0} onSource={vi.fn()} onStale={onStale} />);
+    expect(onStale).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/The saved-action context changed/i)).toBeVisible();
+  });
 });

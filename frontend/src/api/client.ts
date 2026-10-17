@@ -29,5 +29,11 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const post = <T>(path: string, payload: unknown, signal?: AbortSignal) => request<T>(path, { method: 'POST', body: JSON.stringify(payload), signal });
 export function errorMessage(error: unknown): string { return error instanceof Error ? error.message : 'Something went wrong. Please retry.'; }
-export function needsFreshReview(error: unknown): boolean { return error instanceof ApiError && [409, 410, 422].includes(error.status); }
+export function isIdempotencyConflict(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 409 && error.code === 'idempotency_conflict';
+}
+export function needsFreshReview(error: unknown): boolean {
+  if (isIdempotencyConflict(error)) return false;
+  return error instanceof ApiError && [409, 410, 422].includes(error.status);
+}
 export function uncertainOutcome(error: unknown): boolean { return error instanceof ApiError && (error.status === 0 || error.status >= 500); }

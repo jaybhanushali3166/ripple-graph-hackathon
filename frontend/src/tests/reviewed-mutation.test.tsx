@@ -23,4 +23,16 @@ describe('reviewed mutations', () => {
     expect(submit).toHaveBeenCalledTimes(1);
     await act(async () => { finish('saved'); await first; });
   });
+  it('clears uncertain state and allows a fresh submission after abandon()', async () => {
+    const submit = vi.fn().mockRejectedValueOnce(new ApiError(0, 'network_error', 'Connection lost')).mockResolvedValueOnce({ id: 'saved-fresh' });
+    const { result } = renderHook(() => useReviewedMutation(submit));
+    await act(async () => { await result.current.run({ idempotency_key: 'first-key', body: 'First' }).catch(() => {}); });
+    expect(result.current.uncertain).toBe(true);
+    expect(result.current.blocked).toBe(true);
+    act(() => { result.current.abandon(); });
+    expect(result.current.uncertain).toBe(false);
+    expect(result.current.blocked).toBe(false);
+    await act(async () => { await result.current.run({ idempotency_key: 'fresh-key', body: 'Fresh' }); });
+    expect(submit).toHaveBeenNthCalledWith(2, { idempotency_key: 'fresh-key', body: 'Fresh' });
+  });
 });
