@@ -1,0 +1,882 @@
+{
+  "baseline_impacts": {
+    "evidence_version": "ds_demo_20261017:rev_1",
+    "as_of": 1792240151000,
+    "completeness": {
+      "complete": true,
+      "truncated": false,
+      "warnings": []
+    },
+    "impacts": [
+      {
+        "commitment_id": "com_acme_sso",
+        "customer": {
+          "id": "cust_acme",
+          "name": "Acme Corp"
+        },
+        "title": "Enterprise SSO Integration",
+        "due_at": 1792780199999,
+        "status": "no_detected_conflict",
+        "reasons": [],
+        "blockers": [],
+        "paths": [
+          {
+            "nodes": [
+              {
+                "id": "cust_acme",
+                "label": "Acme Corp",
+                "kind": "customer"
+              },
+              {
+                "id": "com_acme_sso",
+                "label": "Enterprise SSO Integration",
+                "kind": "commitment"
+              },
+              {
+                "id": "wi_sso",
+                "label": "Single Sign-On",
+                "kind": "feature"
+              },
+              {
+                "id": "wi_identity_migration",
+                "label": "Identity Migration Service",
+                "kind": "component"
+              },
+              {
+                "id": "wi_permissions",
+                "label": "Permissions Service",
+                "kind": "component"
+              }
+            ],
+            "edges": [
+              {
+                "from_id": "cust_acme",
+                "to_id": "com_acme_sso",
+                "relation": "COMMITTED_TO",
+                "source_id": "src_acme_handoff"
+              },
+              {
+                "from_id": "com_acme_sso",
+                "to_id": "wi_sso",
+                "relation": "REQUIRES",
+                "source_id": "src_acme_handoff"
+              },
+              {
+                "from_id": "wi_sso",
+                "to_id": "wi_identity_migration",
+                "relation": "DEPENDS_ON",
+                "source_id": "src_sso_plan"
+              },
+              {
+                "from_id": "wi_identity_migration",
+                "to_id": "wi_permissions",
+                "relation": "DEPENDS_ON",
+                "source_id": "src_identity_plan"
+              }
+            ]
+          }
+        ],
+        "engineering_owner": {
+          "id": "person_lena",
+          "name": "Lena Torres"
+        },
+        "account_owner": {
+          "id": "person_maya",
+          "name": "Maya Patel"
+        },
+        "citations": [
+          {
+            "source_id": "src_acme_handoff",
+            "quote": "Acme requires SAML 2.0 SSO live in production by October 23, 2026."
+          }
+        ]
+      },
+      {
+        "commitment_id": "com_birch_audit",
+        "customer": {
+          "id": "cust_birch",
+          "name": "Birch Enterprises"
+        },
+        "title": "Audit Logging Compliance",
+        "due_at": 1793039399999,
+        "status": "no_detected_conflict",
+        "reasons": [],
+        "blockers": [],
+        "paths": [
+          {
+            "nodes": [
+              {
+                "id": "cust_birch",
+                "label": "Birch Enterprises",
+                "kind": "customer"
+              },
+              {
+                "id": "com_birch_audit",
+                "label": "Audit Logging Compliance",
+                "kind": "commitment"
+              },
+              {
+                "id": "wi_audit",
+                "label": "Audit Logging",
+                "kind": "feature"
+              },
+              {
+                "id": "wi_permissions",
+                "label": "Permissions Service",
+                "kind": "component"
+              }
+            ],
+            "edges": [
+              {
+                "from_id": "cust_birch",
+                "to_id": "com_birch_audit",
+                "relation": "COMMITTED_TO",
+                "source_id": "src_birch_handoff"
+              },
+              {
+                "from_id": "com_birch_audit",
+                "to_id": "wi_audit",
+                "relation": "REQUIRES",
+                "source_id": "src_birch_handoff"
+              },
+              {
+                "from_id": "wi_audit",
+                "to_id": "wi_permissions",
+                "relation": "DEPENDS_ON",
+                "source_id": "src_audit_plan"
+              }
+            ]
+          }
+        ],
+        "engineering_owner": {
+          "id": "person_omar",
+          "name": "Omar Farooq"
+        },
+        "account_owner": {
+          "id": "person_nisha",
+          "name": "Nisha Rao"
+        },
+        "citations": [
+          {
+            "source_id": "src_birch_handoff",
+            "quote": "Birch audit logging compliance deadline is October 26, 2026."
+          }
+        ]
+      },
+      {
+        "commitment_id": "com_cedar_export",
+        "customer": {
+          "id": "cust_cedar",
+          "name": "Cedar Technologies"
+        },
+        "title": "Automated Data Export Service",
+        "due_at": 1792780199999,
+        "status": "no_detected_conflict",
+        "reasons": [],
+        "blockers": [],
+        "paths": [
+          {
+            "nodes": [
+              {
+                "id": "cust_cedar",
+                "label": "Cedar Technologies",
+                "kind": "customer"
+              },
+              {
+                "id": "com_cedar_export",
+                "label": "Automated Data Export Service",
+                "kind": "commitment"
+              },
+              {
+                "id": "wi_export",
+                "label": "Data Export Engine",
+                "kind": "feature"
+              },
+              {
+                "id": "wi_export_worker",
+                "label": "Export Worker Pipeline",
+                "kind": "component"
+              }
+            ],
+            "edges": [
+              {
+                "from_id": "cust_cedar",
+                "to_id": "com_cedar_export",
+                "relation": "COMMITTED_TO",
+                "source_id": "src_cedar_handoff"
+              },
+              {
+                "from_id": "com_cedar_export",
+                "to_id": "wi_export",
+                "relation": "REQUIRES",
+                "source_id": "src_cedar_handoff"
+              },
+              {
+                "from_id": "wi_export",
+                "to_id": "wi_export_worker",
+                "relation": "DEPENDS_ON",
+                "source_id": "src_export_plan"
+              }
+            ]
+          }
+        ],
+        "engineering_owner": {
+          "id": "person_eli",
+          "name": "Eli Vance"
+        },
+        "account_owner": {
+          "id": "person_leo",
+          "name": "Leo Chen"
+        },
+        "citations": [
+          {
+            "source_id": "src_cedar_handoff",
+            "quote": "Cedar customer data automated export pipeline delivery by October 23, 2026."
+          }
+        ]
+      },
+      {
+        "commitment_id": "com_delta_sso",
+        "customer": {
+          "id": "cust_delta",
+          "name": "Delta Logistics"
+        },
+        "title": "Delta SSO Integration",
+        "due_at": 1793903399999,
+        "status": "no_detected_conflict",
+        "reasons": [],
+        "blockers": [],
+        "paths": [
+          {
+            "nodes": [
+              {
+                "id": "cust_delta",
+                "label": "Delta Logistics",
+                "kind": "customer"
+              },
+              {
+                "id": "com_delta_sso",
+                "label": "Delta SSO Integration",
+                "kind": "commitment"
+              },
+              {
+                "id": "wi_sso",
+                "label": "Single Sign-On",
+                "kind": "feature"
+              },
+              {
+                "id": "wi_identity_migration",
+                "label": "Identity Migration Service",
+                "kind": "component"
+              },
+              {
+                "id": "wi_permissions",
+                "label": "Permissions Service",
+                "kind": "component"
+              }
+            ],
+            "edges": [
+              {
+                "from_id": "cust_delta",
+                "to_id": "com_delta_sso",
+                "relation": "COMMITTED_TO",
+                "source_id": "src_delta_handoff"
+              },
+              {
+                "from_id": "com_delta_sso",
+                "to_id": "wi_sso",
+                "relation": "REQUIRES",
+                "source_id": "src_delta_handoff"
+              },
+              {
+                "from_id": "wi_sso",
+                "to_id": "wi_identity_migration",
+                "relation": "DEPENDS_ON",
+                "source_id": "src_sso_plan"
+              },
+              {
+                "from_id": "wi_identity_migration",
+                "to_id": "wi_permissions",
+                "relation": "DEPENDS_ON",
+                "source_id": "src_identity_plan"
+              }
+            ]
+          }
+        ],
+        "engineering_owner": {
+          "id": "person_lena",
+          "name": "Lena Torres"
+        },
+        "account_owner": {
+          "id": "person_noah",
+          "name": "Noah Kim"
+        },
+        "citations": [
+          {
+            "source_id": "src_delta_handoff",
+            "quote": "Delta Logistics SSO rollout required by November 5, 2026."
+          }
+        ]
+      }
+    ]
+  },
+  "updated_impacts": {
+    "evidence_version": "ds_demo_20261017:rev_2",
+    "as_of": 1792240151000,
+    "completeness": {
+      "complete": true,
+      "truncated": false,
+      "warnings": []
+    },
+    "impacts": [
+      {
+        "commitment_id": "com_acme_sso",
+        "customer": {
+          "id": "cust_acme",
+          "name": "Acme Corp"
+        },
+        "title": "Enterprise SSO Integration",
+        "due_at": 1792780199999,
+        "status": "date_conflict",
+        "reasons": [
+          "Dependency 'Permissions Service' available on Oct 28, 2026, which is after commitment due date Oct 23, 2026."
+        ],
+        "blockers": [
+          {
+            "work_item_id": "wi_permissions",
+            "name": "Permissions Service",
+            "forecast_id": "fc_permissions_v2",
+            "available_at": 1793212199999,
+            "decision_id": "dec_live_permissions_001"
+          }
+        ],
+        "paths": [
+          {
+            "nodes": [
+              {
+                "id": "cust_acme",
+                "label": "Acme Corp",
+                "kind": "customer"
+              },
+              {
+                "id": "com_acme_sso",
+                "label": "Enterprise SSO Integration",
+                "kind": "commitment"
+              },
+              {
+                "id": "wi_sso",
+                "label": "Single Sign-On",
+                "kind": "feature"
+              },
+              {
+                "id": "wi_identity_migration",
+                "label": "Identity Migration Service",
+                "kind": "component"
+              },
+              {
+                "id": "wi_permissions",
+                "label": "Permissions Service",
+                "kind": "component"
+              }
+            ],
+            "edges": [
+              {
+                "from_id": "cust_acme",
+                "to_id": "com_acme_sso",
+                "relation": "COMMITTED_TO",
+                "source_id": "src_acme_handoff"
+              },
+              {
+                "from_id": "com_acme_sso",
+                "to_id": "wi_sso",
+                "relation": "REQUIRES",
+                "source_id": "src_acme_handoff"
+              },
+              {
+                "from_id": "wi_sso",
+                "to_id": "wi_identity_migration",
+                "relation": "DEPENDS_ON",
+                "source_id": "src_sso_plan"
+              },
+              {
+                "from_id": "wi_identity_migration",
+                "to_id": "wi_permissions",
+                "relation": "DEPENDS_ON",
+                "source_id": "src_identity_plan"
+              }
+            ]
+          }
+        ],
+        "engineering_owner": {
+          "id": "person_priya",
+          "name": "Priya Sharma"
+        },
+        "account_owner": {
+          "id": "person_maya",
+          "name": "Maya Patel"
+        },
+        "citations": [
+          {
+            "source_id": "src_permissions_ticket",
+            "quote": "Approved: permissions service delivery moves from October 21, 2026 to October 28, 2026. Owner: Priya. This replaces decision DEC-12."
+          },
+          {
+            "source_id": "src_acme_handoff",
+            "quote": "Acme requires SAML 2.0 SSO live in production by October 23, 2026."
+          }
+        ]
+      },
+      {
+        "commitment_id": "com_birch_audit",
+        "customer": {
+          "id": "cust_birch",
+          "name": "Birch Enterprises"
+        },
+        "title": "Audit Logging Compliance",
+        "due_at": 1793039399999,
+        "status": "date_conflict",
+        "reasons": [
+          "Dependency 'Permissions Service' available on Oct 28, 2026, which is after commitment due date Oct 26, 2026."
+        ],
+        "blockers": [
+          {
+            "work_item_id": "wi_permissions",
+            "name": "Permissions Service",
+            "forecast_id": "fc_permissions_v2",
+            "available_at": 1793212199999,
+            "decision_id": "dec_live_permissions_001"
+          }
+        ],
+        "paths": [
+          {
+            "nodes": [
+              {
+                "id": "cust_birch",
+                "label": "Birch Enterprises",
+                "kind": "customer"
+              },
+              {
+                "id": "com_birch_audit",
+                "label": "Audit Logging Compliance",
+                "kind": "commitment"
+              },
+              {
+                "id": "wi_audit",
+                "label": "Audit Logging",
+                "kind": "feature"
+              },
+              {
+                "id": "wi_permissions",
+                "label": "Permissions Service",
+                "kind": "component"
+              }
+            ],
+            "edges": [
+              {
+                "from_id": "cust_birch",
+                "to_id": "com_birch_audit",
+                "relation": "COMMITTED_TO",
+                "source_id": "src_birch_handoff"
+              },
+              {
+                "from_id": "com_birch_audit",
+                "to_id": "wi_audit",
+                "relation": "REQUIRES",
+                "source_id": "src_birch_handoff"
+              },
+              {
+                "from_id": "wi_audit",
+                "to_id": "wi_permissions",
+                "relation": "DEPENDS_ON",
+                "source_id": "src_audit_plan"
+              }
+            ]
+          }
+        ],
+        "engineering_owner": {
+          "id": "person_priya",
+          "name": "Priya Sharma"
+        },
+        "account_owner": {
+          "id": "person_nisha",
+          "name": "Nisha Rao"
+        },
+        "citations": [
+          {
+            "source_id": "src_permissions_ticket",
+            "quote": "Approved: permissions service delivery moves from October 21, 2026 to October 28, 2026. Owner: Priya. This replaces decision DEC-12."
+          },
+          {
+            "source_id": "src_birch_handoff",
+            "quote": "Birch audit logging compliance deadline is October 26, 2026."
+          }
+        ]
+      },
+      {
+        "commitment_id": "com_cedar_export",
+        "customer": {
+          "id": "cust_cedar",
+          "name": "Cedar Technologies"
+        },
+        "title": "Automated Data Export Service",
+        "due_at": 1792780199999,
+        "status": "no_detected_conflict",
+        "reasons": [],
+        "blockers": [],
+        "paths": [
+          {
+            "nodes": [
+              {
+                "id": "cust_cedar",
+                "label": "Cedar Technologies",
+                "kind": "customer"
+              },
+              {
+                "id": "com_cedar_export",
+                "label": "Automated Data Export Service",
+                "kind": "commitment"
+              },
+              {
+                "id": "wi_export",
+                "label": "Data Export Engine",
+                "kind": "feature"
+              },
+              {
+                "id": "wi_export_worker",
+                "label": "Export Worker Pipeline",
+                "kind": "component"
+              }
+            ],
+            "edges": [
+              {
+                "from_id": "cust_cedar",
+                "to_id": "com_cedar_export",
+                "relation": "COMMITTED_TO",
+                "source_id": "src_cedar_handoff"
+              },
+              {
+                "from_id": "com_cedar_export",
+                "to_id": "wi_export",
+                "relation": "REQUIRES",
+                "source_id": "src_cedar_handoff"
+              },
+              {
+                "from_id": "wi_export",
+                "to_id": "wi_export_worker",
+                "relation": "DEPENDS_ON",
+                "source_id": "src_export_plan"
+              }
+            ]
+          }
+        ],
+        "engineering_owner": {
+          "id": "person_eli",
+          "name": "Eli Vance"
+        },
+        "account_owner": {
+          "id": "person_leo",
+          "name": "Leo Chen"
+        },
+        "citations": [
+          {
+            "source_id": "src_cedar_handoff",
+            "quote": "Cedar customer data automated export pipeline delivery by October 23, 2026."
+          }
+        ]
+      },
+      {
+        "commitment_id": "com_delta_sso",
+        "customer": {
+          "id": "cust_delta",
+          "name": "Delta Logistics"
+        },
+        "title": "Delta SSO Integration",
+        "due_at": 1793903399999,
+        "status": "no_detected_conflict",
+        "reasons": [],
+        "blockers": [],
+        "paths": [
+          {
+            "nodes": [
+              {
+                "id": "cust_delta",
+                "label": "Delta Logistics",
+                "kind": "customer"
+              },
+              {
+                "id": "com_delta_sso",
+                "label": "Delta SSO Integration",
+                "kind": "commitment"
+              },
+              {
+                "id": "wi_sso",
+                "label": "Single Sign-On",
+                "kind": "feature"
+              },
+              {
+                "id": "wi_identity_migration",
+                "label": "Identity Migration Service",
+                "kind": "component"
+              },
+              {
+                "id": "wi_permissions",
+                "label": "Permissions Service",
+                "kind": "component"
+              }
+            ],
+            "edges": [
+              {
+                "from_id": "cust_delta",
+                "to_id": "com_delta_sso",
+                "relation": "COMMITTED_TO",
+                "source_id": "src_delta_handoff"
+              },
+              {
+                "from_id": "com_delta_sso",
+                "to_id": "wi_sso",
+                "relation": "REQUIRES",
+                "source_id": "src_delta_handoff"
+              },
+              {
+                "from_id": "wi_sso",
+                "to_id": "wi_identity_migration",
+                "relation": "DEPENDS_ON",
+                "source_id": "src_sso_plan"
+              },
+              {
+                "from_id": "wi_identity_migration",
+                "to_id": "wi_permissions",
+                "relation": "DEPENDS_ON",
+                "source_id": "src_identity_plan"
+              }
+            ]
+          }
+        ],
+        "engineering_owner": {
+          "id": "person_lena",
+          "name": "Lena Torres"
+        },
+        "account_owner": {
+          "id": "person_noah",
+          "name": "Noah Kim"
+        },
+        "citations": [
+          {
+            "source_id": "src_delta_handoff",
+            "quote": "Delta Logistics SSO rollout required by November 5, 2026."
+          }
+        ]
+      }
+    ]
+  },
+  "source_response": {
+    "id": "src_permissions_ticket",
+    "type": "ticket",
+    "title": "PERM-402: Core Permissions Service Architecture and Delivery",
+    "body": "Ticket: PERM-402\nTitle: Core Permissions Service Architecture and Delivery\nAssignee: Priya Sharma\nComponent: Permissions Engine\nStatus: In Progress\nTarget delivery originally scheduled for October 21, 2026 under DEC-12.\nApproved: permissions service delivery moves from October 21, 2026 to October 28, 2026. Owner: Priya. This replaces decision DEC-12.\nRequired by Identity Migration and Audit Logging modules.",
+    "source_timestamp": 1792153800000,
+    "content_hash": "sha256:d8a9f3e4c1b2a5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0"
+  },
+  "history_response": {
+    "evidence_version": "ds_demo_20261017:rev_2",
+    "forecasts": [
+      {
+        "id": "fc_permissions_v1",
+        "available_at": 1792607399999,
+        "valid_from": 1792153800000,
+        "valid_to": 1792240151000,
+        "decision_id": "DEC-12",
+        "citations": [
+          {
+            "source_id": "src_dec12",
+            "quote": "permissions delivery committed for October 21, 2026 under DEC-12"
+          }
+        ]
+      },
+      {
+        "id": "fc_permissions_v2",
+        "available_at": 1793212199999,
+        "valid_from": 1792240151000,
+        "valid_to": null,
+        "decision_id": "dec_live_permissions_001",
+        "citations": [
+          {
+            "source_id": "src_permissions_ticket",
+            "quote": "Approved: permissions service delivery moves from October 21, 2026 to October 28, 2026. Owner: Priya. This replaces decision DEC-12."
+          }
+        ]
+      }
+    ]
+  },
+  "decision_preview_response": {
+    "preview_id": "prev_9a8b7c6d5e4f",
+    "evidence_version": "ds_demo_20261017:rev_1",
+    "expires_at": 1792241051000,
+    "proposal": {
+      "work_item_id": "wi_permissions",
+      "available_at": 1793212199999,
+      "effective_at": 1792240151000,
+      "supersedes_id": "DEC-12",
+      "owner_id": "person_priya",
+      "evidence_quote": "Approved: permissions service delivery moves from October 21, 2026 to October 28, 2026. Owner: Priya. This replaces decision DEC-12."
+    },
+    "warnings": []
+  },
+  "decision_confirm_response": {
+    "decision_id": "dec_live_permissions_001",
+    "evidence_version": "ds_demo_20261017:rev_2",
+    "changed_work_item_ids": [
+      "wi_permissions"
+    ]
+  },
+  "agent_response": {
+    "run_id": "run_1a2b3c4d5e6f",
+    "evidence_version": "ds_demo_20261017:rev_2",
+    "status": "complete",
+    "answer": "The permissions service delivery change to October 28, 2026 (superseding DEC-12) creates date conflicts for Acme Corp (due October 23, 2026) and Birch Enterprises (due October 26, 2026). Both commitments depend on wi_permissions. Priya Sharma is the accountable engineering owner for both blockers. Cedar Technologies does not depend on permissions and remains on track for October 23, 2026. Delta Logistics depends on permissions but is due November 5, 2026, so no date conflict is detected.",
+    "citations": [
+      {
+        "source_id": "src_permissions_ticket",
+        "quote": "Approved: permissions service delivery moves from October 21, 2026 to October 28, 2026. Owner: Priya. This replaces decision DEC-12."
+      },
+      {
+        "source_id": "src_acme_handoff",
+        "quote": "Acme requires SAML 2.0 SSO live in production by October 23, 2026."
+      },
+      {
+        "source_id": "src_birch_handoff",
+        "quote": "Birch audit logging compliance deadline is October 26, 2026."
+      }
+    ],
+    "drafts": [
+      {
+        "kind": "internal_escalation",
+        "commitment_id": "com_acme_sso",
+        "assignee_id": "person_priya",
+        "body": "Hi Priya, with the permissions service delivery moving to October 28, 2026 under dec_live_permissions_001 (revising DEC-12), Acme's Enterprise SSO commitment (due October 23, 2026) now has an active date conflict. Since Single Sign-On and Identity Migration require the Permissions Service, please coordinate an escalation sync with Maya Patel to replan the delivery timeline.",
+        "citations": [
+          {
+            "source_id": "src_permissions_ticket",
+            "quote": "Approved: permissions service delivery moves from October 21, 2026 to October 28, 2026. Owner: Priya. This replaces decision DEC-12."
+          },
+          {
+            "source_id": "src_acme_handoff",
+            "quote": "Acme requires SAML 2.0 SSO live in production by October 23, 2026."
+          }
+        ],
+        "based_on_decision_ids": [
+          "dec_live_permissions_001",
+          "DEC-12"
+        ]
+      },
+      {
+        "kind": "customer_update",
+        "commitment_id": "com_acme_sso",
+        "assignee_id": "person_maya",
+        "body": "Dear Acme team, our engineering review indicates a schedule revision for core permissions dependencies moving delivery to October 28, 2026. We are proactively reviewing our October 23 delivery target with our engineering leads and will share an updated roadmap alignment shortly.",
+        "citations": [
+          {
+            "source_id": "src_acme_handoff",
+            "quote": "Acme requires SAML 2.0 SSO live in production by October 23, 2026."
+          }
+        ],
+        "based_on_decision_ids": [
+          "dec_live_permissions_001"
+        ]
+      }
+    ],
+    "tool_trace": [
+      {
+        "tool": "find_impacted_commitments",
+        "arguments": {
+          "as_of": 1792240151000
+        },
+        "evidence_ids": [
+          "com_acme_sso",
+          "com_birch_audit"
+        ],
+        "status": "ok"
+      },
+      {
+        "tool": "get_evidence",
+        "arguments": {
+          "commitment_id": "com_acme_sso"
+        },
+        "evidence_ids": [
+          "src_acme_handoff",
+          "src_sso_plan",
+          "src_identity_plan",
+          "src_permissions_ticket"
+        ],
+        "status": "ok"
+      },
+      {
+        "tool": "get_owners",
+        "arguments": {
+          "commitment_id": "com_acme_sso"
+        },
+        "evidence_ids": [
+          "person_priya",
+          "person_maya"
+        ],
+        "status": "ok"
+      }
+    ],
+    "warnings": []
+  },
+  "actions_response": {
+    "evidence_version": "ds_demo_20261017:rev_2",
+    "actions": [
+      {
+        "id": "act_e1f2a3b4c5d6",
+        "commitment_id": "com_acme_sso",
+        "kind": "internal_escalation",
+        "assignee_id": "person_priya",
+        "body": "Hi Priya, with the permissions service delivery moving to October 28, 2026 under dec_live_permissions_001 (revising DEC-12), Acme's Enterprise SSO commitment (due October 23, 2026) now has an active date conflict. Since Single Sign-On and Identity Migration require the Permissions Service, please coordinate an escalation sync with Maya Patel to replan the delivery timeline.",
+        "citations": [
+          {
+            "source_id": "src_permissions_ticket",
+            "quote": "Approved: permissions service delivery moves from October 21, 2026 to October 28, 2026. Owner: Priya. This replaces decision DEC-12."
+          }
+        ],
+        "based_on_decision_ids": [
+          "dec_live_permissions_001",
+          "DEC-12"
+        ],
+        "status": "reviewed",
+        "evidence_version": "ds_demo_20261017:rev_2",
+        "created_at": 1792240350000
+      }
+    ]
+  },
+  "error_409_stale_evidence": {
+    "error": {
+      "code": "stale_evidence",
+      "message": "The expected evidence version 'ds_demo_20261017:rev_1' is stale. Current knowledge version is 'ds_demo_20261017:rev_2'. Fresh review required.",
+      "details": {
+        "expected_version": "ds_demo_20261017:rev_1",
+        "current_version": "ds_demo_20261017:rev_2"
+      }
+    }
+  },
+  "error_410_preview_expired": {
+    "error": {
+      "code": "preview_expired",
+      "message": "Decision proposal preview 'prev_9a8b7c6d5e4f' has expired after 15 minutes. Please request a fresh preview.",
+      "details": {
+        "preview_id": "prev_9a8b7c6d5e4f",
+        "expires_at": 1792241051000
+      }
+    }
+  },
+  "error_422_review_required": {
+    "error": {
+      "code": "review_required",
+      "message": "Explicit request for custom historical or future decision-effective times is not supported for live updates. Server preview time must be used.",
+      "details": {
+        "reason": "custom_effective_time_unsupported",
+        "field": "effective_at"
+      }
+    }
+  }
+}
