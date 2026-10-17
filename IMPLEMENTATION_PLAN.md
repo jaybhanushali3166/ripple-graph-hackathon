@@ -1,6 +1,6 @@
 # Ripple — hackathon implementation plan
 
-Prepared October 17, 2026. Recommendation: enter Track 3, Company Brain. Assume one developer and 16 focused implementation hours, with time reserved for sleep and submission. Estimates below are planning estimates, not measured build times. This document plans the product; implementation has not started.
+Prepared October 17, 2026. Recommendation: enter Track 3, Company Brain. The team now has four developers: Ashwin, Pavan, Abhijeet, and Jay. Jay owns the frontend. Use the [team implementation plan](TEAM_IMPLEMENTATION_PLAN.md) and individual implementation files for current ownership, shared contracts, and build order. The sixteen-hour sequence below is the original solo estimate; the team plan replaces it with parallel work and integration checkpoints. Estimates are planning estimates, not measured build times. Implementation has not started.
 
 **1. The decision**
 
@@ -130,7 +130,7 @@ Action     -ASSIGNED_TO->    Person
 Action     -BASED_ON->       Decision
 ```
 
-Dependency and ownership edges carry source_id. Use explicit IDs and a small alias dictionary for names. Never merge people solely by display name. An unrecognised or ambiguous entity requires selection before any mutation.
+All proof-bearing edges, including customer/commitment, requirement, dependency, and ownership edges, carry source_id. Use explicit IDs and a small alias dictionary for names. Never merge people solely by display name. An unrecognised or ambiguous entity requires selection before any mutation.
 
 Store times as UTC epoch milliseconds and display them in IST. Define date-only commitments as end of that day in IST. Forecast validity is a half-open interval: valid_from <= as_of < valid_to; absent valid_to means still active. On a confirmed update, close the old forecast interval and add the new forecast in one mutation. Deterministic decision/source IDs make replay idempotent. Serialise updates for this single-workspace MVP.
 
@@ -284,4 +284,4 @@ docs/{graph-model,verification,ai-assistance}.md
 
 If the core is finished early, add one optional differentiator: preview a hypothetical date change in a separate graph, compare impacted commitments, then discard the scenario. FalkorDB supports [graph copying](https://docs.falkordb.com/commands/graph.copy). Use a server-generated graph name and clean up scenario graphs. This is a stretch feature, not a prerequisite.
 
-The submission’s strongest evidence will be a functioning dependency update, precise unaffected controls, source-backed explanations, and a durable action. Winning cannot be guaranteed; this scope gives one developer a credible, distinctive product to demonstrate by tomorrow.
+The submission’s strongest evidence will be a functioning dependency update, precise unaffected controls, source-backed explanations, and a durable action. Winning cannot be guaranteed; this scope gives the team a credible, distinctive product to demonstrate by tomorrow.
