@@ -6,6 +6,7 @@ from backend.app.api.actions import router as actions_router
 from backend.app.api.agent import router as agent_router
 from backend.app.api.decisions import router as decisions_router
 from backend.app.api.demo import router as demo_router
+from backend.app.api.graph import router as graph_router
 from backend.app.api.health import router as health_router
 from backend.app.api.history import router as history_router
 from backend.app.api.impacts import router as impacts_router
@@ -21,5 +22,6 @@ api_router.include_router(decisions_router, tags=["decisions"])
 api_router.include_router(agent_router, tags=["agent"])
 api_router.include_router(actions_router, tags=["actions"])
 api_router.include_router(demo_router, tags=["demo"])
+api_router.include_router(graph_router, tags=["graph"])
 
 __all__ = ["api_router"]

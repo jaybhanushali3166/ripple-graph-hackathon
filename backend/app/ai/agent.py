@@ -46,6 +46,97 @@ from backend.app.schemas import (
 
 TOTAL_AGENT_TIMEOUT_SECONDS = 30.0
 
+_ISO_DATE_RE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b(?![\dT:]|\s\d{1,2}:\d{2})")
+_QUOTED_RE = re.compile(r'("[^"\n]*"|“[^”\n]*”)')
+_ID_RE = re.compile(r"\b(?:com|wi|person|cust|src|fc|team|dec)_[A-Za-z0-9_]+\b")
+
+
+def _human_date(ms: int) -> str:
+    """"28 October 2026" for an epoch-ms IST date."""
+    return _iso_to_human(ist_date(ms))
+
+
+def _display_names(evidence: dict[str, Any]) -> dict[str, str]:
+    """Internal ID -> display name, from everything the tools retrieved this run."""
+    names: dict[str, str] = {}
+    for entity in evidence.get("entities", {}).values():
+        if entity.get("id") and entity.get("name"):
+            names[entity["id"]] = entity["name"]
+    for impact in evidence.get("impacts", {}).values():
+        names[impact.get("commitment_id", "")] = impact.get("title") or ""
+        customer = impact.get("customer") or {}
+        names[customer.get("id", "")] = customer.get("name") or ""
+        for path in impact.get("paths", []):
+            for node in path.get("nodes", []):
+                names[node["id"]] = node["label"]
+        for blocker in impact.get("blockers", []):
+            names[blocker["work_item_id"]] = blocker.get("name") or ""
+        for role in ("engineering_owner", "account_owner"):
+            if impact.get(role):
+                names[impact[role]["id"]] = impact[role]["name"]
+    for owners in evidence.get("owners", {}).values():
+        for role in ("engineering_owner", "account_owner"):
+            if owners.get(role):
+                names[owners[role]["id"]] = owners[role]["name"]
+    for experts in evidence.get("experts", {}).values():
+        for expert in experts.get("experts", []):
+            names[expert["id"]] = expert["name"]
+    for source_id, source in evidence.get("sources", {}).items():
+        if source.get("title"):
+            names[source_id] = source["title"]
+    return {k: v for k, v in names.items() if k and v}
+
+
+def humanize_ids(text: str, names: dict[str, str]) -> str:
+    """Replace internal IDs the model echoed with display names.
+
+    "Priya Raman (person_priya)" loses the parenthetical; a bare or backticked ID becomes
+    its name. Unknown IDs are left alone rather than guessed. ISO dates become "23 October 2026".
+    """
+    if not text:
+        return text
+
+    def paren(match: re.Match) -> str:
+        ident = match.group(1)
+        name = names.get(ident)
+        if name is None:
+            return match.group(0)
+        before = text[max(0, match.start() - len(name) - 6):match.start()]
+        return "" if name.lower() in before.lower() else f" ({name})"
+
+    text = re.sub(r"\s*\(\s*`?(" + _ID_RE.pattern + r")`?\s*\)", paren, text)
+    text = re.sub(r"`(" + _ID_RE.pattern + r")`", lambda m: names.get(m.group(1), m.group(0)), text)
+    text = _ID_RE.sub(lambda m: names.get(m.group(0), m.group(0)), text)
+    # Quoted evidence stays verbatim; only the model's own prose gets readable dates.
+    return "".join(part if i % 2 else _ISO_DATE_RE.sub(lambda m: _iso_to_human(m.group(0)), part)
+                   for i, part in enumerate(_QUOTED_RE.split(text)))
+
+
+def _iso_to_human(day: str) -> str:
+    from datetime import date
+    try:
+        parsed = date.fromisoformat(day)
+    except ValueError:
+        return day
+    return f"{parsed.day} {parsed:%B %Y}"
+
+
+def _experts_answer(experts_data: list[dict[str, Any]], names: dict[str, str]) -> str:
+    """Grounded fallback answer for who-knows-what questions."""
+    lines = []
+    for experts in experts_data:
+        subject = names.get(experts.get("work_item_id", ""), "this work item")
+        ranked = experts.get("experts", [])
+        if not ranked:
+            lines.append(f"No one is recorded as knowing about {subject}.")
+            continue
+        lines.append(f"**{ranked[0]['name']}** knows the most about {subject}.")
+        for expert in ranked:
+            kinds = sorted({r["kind"] for r in expert["reasons"]})
+            label = {"owns": "owner", "discussed": "discussed it", "member_of": "responsible team"}
+            lines.append(f"- **{expert['name']}**: " + ", ".join(label[k] for k in kinds))
+    return "\n".join(lines)
+
 
 class StaleEvidenceError(Exception):
     """Raised when expected_version does not match the active knowledge revision."""
@@ -67,6 +158,22 @@ def _serialize_tool_output(obj: Any) -> Any:
     if isinstance(obj, list):
         return [_serialize_tool_output(v) for v in obj]
     return obj
+
+
+def _subject_work_item(messages: list[dict[str, Any]]) -> str | None:
+    """The blocking (else first required) work item from a get_evidence response in messages."""
+    for m in messages:
+        for fr in m.get("function_responses") or []:
+            if fr.get("name") != "get_evidence" or not isinstance(fr.get("response"), dict):
+                continue
+            evidence = fr["response"]
+            if evidence.get("blockers"):
+                return evidence["blockers"][0]["work_item_id"]
+            for path in evidence.get("paths", []):
+                for edge in path.get("edges", []):
+                    if edge.get("relation") == "REQUIRES":
+                        return edge["to_id"]
+    return None
 
 
 def _default_tool_step_handler(
@@ -123,6 +230,20 @@ def _default_tool_step_handler(
                         return AgentStepResult(
                             text="Entity 'Globex' was not found in the graph. No commitments or impacts exist for this customer."
                         )
+
+    # Expertise path: get_evidence for the selected commitment, then find_experts on its blocker
+    # (or required root), so the answer is about the work behind the selected promise.
+    if "who knows" in lower or "expert" in lower:
+        ctx = re.search(r"\(Selected commitment context:\s*([a-zA-Z0-9_]+)\)", user_msg)
+        cid = ctx.group(1) if ctx and ctx.group(1) != "None" else None
+        if cid and "get_evidence" not in completed_tools:
+            return AgentStepResult(tool_calls=[ToolCall(name="get_evidence", arguments={"commitment_id": cid})])
+        if "find_experts" not in completed_tools:
+            subject = _subject_work_item(messages) or "wi_permissions"
+            return AgentStepResult(
+                tool_calls=[ToolCall(name="find_experts", arguments={"work_item_id": subject})]
+            )
+        return AgentStepResult(text=None)
 
     # Lineage path: get_forecast_history -> get_source
     if "lineage" in lower or "why" in lower or "dec-12" in lower or "history" in lower:
@@ -197,6 +318,7 @@ async def _execute_agent_run(
         "get_owners": tool_runner.get_owners,
         "get_forecast_history": tool_runner.get_forecast_history,
         "get_source": tool_runner.get_source,
+        "find_experts": tool_runner.find_experts,
         "draft_followup": tool_runner.draft_followup,
     }
 
@@ -349,8 +471,12 @@ async def _execute_agent_run(
     if tool_runner.accumulated_evidence["histories"]:
         history_data = next(iter(tool_runner.accumulated_evidence["histories"].values()))
 
+    experts_data = list(tool_runner.accumulated_evidence["experts"].values())
+
     # Build grounded answer if model text was empty or provider failed
     is_lineage = bool(history_data is not None and not impact_data)
+    if (not answer_text or answer_text.strip() == "") and experts_data:
+        answer_text = _experts_answer(experts_data, _display_names(tool_runner.accumulated_evidence))
     if not answer_text or answer_text.strip() == "":
         q_type = "lineage" if is_lineage else "impact"
         answer_text = build_grounded_answer(
@@ -371,6 +497,10 @@ async def _execute_agent_run(
             relevant_citations.extend(fc.get("citations", []))
     else:
         relevant_citations = tool_runner.accumulated_evidence.get("citations", [])
+    for experts in experts_data:  # who-knows-what answers cite the chats and tickets behind them
+        for expert in experts.get("experts", []):
+            relevant_citations = relevant_citations + [
+                {"source_id": r["source_id"], "quote": r["quote"]} for r in expert.get("reasons", [])]
 
     for cit in relevant_citations:
         sid = cit.get("source_id", "")
@@ -383,7 +513,10 @@ async def _execute_agent_run(
     # 5. Verified Drafts
     drafts: list[Draft] = []
     # If drafts were generated by the model calling draft_followup, validate them
+    names = _display_names(tool_runner.accumulated_evidence)
     for draft_obj in tool_runner.accumulated_evidence.get("drafts", []):
+        # Humanize first so the validated text is exactly the text returned.
+        draft_obj = draft_obj.model_copy(update={"body": humanize_ids(draft_obj.body, names)})
         target_impact = tool_runner.accumulated_evidence["impacts"].get(draft_obj.commitment_id)
         if target_impact:
             val_d, d_warn = validate_draft(draft_obj, target_impact, repo, tool_runner.accumulated_evidence.get("sources"))
@@ -406,7 +539,7 @@ async def _execute_agent_run(
 
         cust_name = impact_data.get("customer", {}).get("name") or "Customer"
         comm_title = impact_data.get("title") or cid
-        due_date_str = ist_date(impact_data.get("due_at")) if impact_data.get("due_at") else "target date"
+        due_date_str = _human_date(impact_data.get("due_at")) if impact_data.get("due_at") else "the target date"
 
         blocker_names = [b.get("name") or b.get("work_item_name") or b.get("work_item_id") for b in blockers]
         blockers_str = ", ".join(filter(None, blocker_names)) or "upstream component"
@@ -423,11 +556,12 @@ async def _execute_agent_run(
         if eng_owner and eng_owner.get("id"):
             eng_name = eng_owner.get("name", "there")
             acc_name = acc_owner.get("name", "the account lead") if acc_owner else "the account lead"
+            latest = max((b.get("available_at") for b in blockers if b.get("available_at")), default=None)
+            slip = f" is now forecast for {_human_date(latest)}" if latest else " has slipped"
             esc_body = (
-                f"Hi {eng_name}, the delivery schedule revision for {blockers_str} under "
-                f"{dec_ids_str} conflicts with {cust_name}'s commitment '{comm_title}' "
-                f"({cid}) due on {due_date_str}. "
-                f"Please coordinate an escalation sync with {acc_name} to replan delivery timelines."
+                f"Hi {eng_name}, {blockers_str}{slip} ({dec_ids_str}). "
+                f"That lands after {cust_name}'s {comm_title} promise, due {due_date_str}. "
+                f"Could you set up a replanning sync with {acc_name} to agree options before we update the customer?"
             )
             raw_esc = Draft(
                 kind="internal_escalation",
@@ -448,9 +582,9 @@ async def _execute_agent_run(
         # Customer update draft constructed directly
         if acc_owner and acc_owner.get("id"):
             cust_body = (
-                f"Dear {cust_name} team, our engineering review indicates a schedule "
-                f"revision for upstream {blockers_str} dependencies affecting '{comm_title}'. "
-                f"We are reviewing delivery targets with our engineering leads and will share an updated roadmap alignment shortly."
+                f"Hi {cust_name} team, a change in an upstream dependency ({blockers_str}) affects the "
+                f"schedule for {comm_title}. Our engineering leads are reviewing the delivery plan now, "
+                f"and we will follow up with an update as soon as it is agreed."
             )
             raw_cust = Draft(
                 kind="customer_update",
@@ -483,6 +617,8 @@ async def _execute_agent_run(
         )
         status = "partial"
         current_version = final_version
+
+    answer_text = humanize_ids(answer_text, _display_names(tool_runner.accumulated_evidence))
 
     return AgentResponse(
         run_id=f"run_{uuid.uuid4().hex[:12]}",

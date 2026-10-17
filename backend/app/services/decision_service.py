@@ -90,11 +90,17 @@ def _get_candidates() -> Dict[str, Any]:
 
 def _make_fallback_test_double(text: str) -> DeterministicTestDouble:
     """Create a deterministic extraction test double when no live LLM API key is configured."""
-    # Delivery date: ISO YYYY-MM-DD
+    # Delivery date: the last written date ("October 28, 2026") is the decided one; a note's
+    # header timestamp (2026-10-17 14:20) is not. ISO dates are the fallback.
     delivery_date = "2026-10-28"
-    iso_match = re.search(r"\b(\d{4}-\d{2}-\d{2})\b", text)
-    if iso_match:
-        delivery_date = iso_match.group(1)
+    months = "January|February|March|April|May|June|July|August|September|October|November|December"
+    written = re.findall(r"\b(%s) (\d{1,2}), (\d{4})\b" % months, text)
+    iso_dates = re.findall(r"\b(\d{4}-\d{2}-\d{2})\b(?! \d{1,2}:\d{2})", text)
+    if written:
+        month, day, year = written[-1]
+        delivery_date = "%s-%02d-%02d" % (year, months.split("|").index(month) + 1, int(day))
+    elif iso_dates:
+        delivery_date = iso_dates[-1]
 
     # Identify work item
     wi_str = "permissions"
@@ -140,6 +146,39 @@ def _make_fallback_test_double(text: str) -> DeterministicTestDouble:
     )
 
 
+async def _preview_warnings(proposal, now_ms: int) -> List[str]:
+    """Compare the proposal with the work item's active forecast in the live graph.
+
+    A note may name a decision that has since been superseded; the proposal then
+    supersedes the active record instead, which is what confirm requires, and says so.
+    """
+    repo = get_graph_repository()
+    if repo is None:
+        return []
+    try:
+        history = await asyncio.to_thread(repo.get_history, proposal.work_item_id)
+    except Exception as exc:  # the preview stays reviewable; confirm re-validates everything
+        logger.warning("Preview could not read history for %s: %s", proposal.work_item_id, exc)
+        return []
+    active = [f for f in history["forecasts"]
+              if f["valid_from"] <= now_ms and (f["valid_to"] is None or now_ms < f["valid_to"])]
+    if len(active) != 1:
+        return []
+    current = active[0]
+    warnings = []
+    if current["available_at"] == proposal.available_at:
+        warnings.append(
+            "already_recorded: this date is already the accepted forecast (%s). Confirming will be rejected; "
+            "reset the demo or describe a different date." % current["decision_id"])
+    elif proposal.supersedes_id != current["decision_id"]:
+        if proposal.supersedes_id:
+            warnings.append(
+                "supersedes_corrected: the note names %s, but the current accepted record is %s. "
+                "This update will supersede %s." % (proposal.supersedes_id, current["decision_id"], current["decision_id"]))
+        proposal.supersedes_id = current["decision_id"]
+    return warnings
+
+
 class DecisionService:
     """Service orchestrating decision extraction preview and atomic confirmation under R1."""
 
@@ -174,6 +213,10 @@ class DecisionService:
             raise ReviewRequired("Unparseable or ambiguous decision note requires human review.")
 
         candidates = _get_candidates()
+        repo = get_graph_repository()
+        if repo is not None:
+            # Decisions confirmed at runtime (DEC-13, ...) live only in the graph.
+            candidates = dict(candidates, decisions=await asyncio.to_thread(repo.list_decisions))
         source_id = f"src_{uuid.uuid4().hex[:12]}"
 
         # Select LLM provider
@@ -195,6 +238,8 @@ class DecisionService:
             provider=provider,
         )
 
+        warnings = await _preview_warnings(proposal, now_ms)
+
         # Generate unique preview_id and store in PreviewStore (15-min TTL)
         preview_id = f"prev_{uuid.uuid4().hex[:12]}"
         preview_store = get_preview_store()
@@ -213,7 +258,7 @@ class DecisionService:
             evidence_version=record.evidence_version,
             expires_at=record.expires_at,
             proposal=record.proposal,
-            warnings=[],
+            warnings=warnings,
         )
 
     async def confirm_decision(self, request: DecisionConfirmRequest) -> DecisionConfirmResponse:

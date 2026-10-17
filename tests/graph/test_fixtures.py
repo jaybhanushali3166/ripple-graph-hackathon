@@ -73,7 +73,7 @@ REL_KINDS = {
     "HAS_COMMITMENT": ("customer", "commitment"), "REQUIRES": ("commitment", "work_item"),
     "DEPENDS_ON": ("work_item", "work_item"), "OWNS": ("person", "work_item"),
     "ACCOUNT_OWNER": ("person", "customer"), "MEMBER_OF": ("person", "team"),
-    "RESPONSIBLE_FOR": ("team", "work_item")}
+    "RESPONSIBLE_FOR": ("team", "work_item"), "DISCUSSED": ("person", "work_item")}
 LIVE_UPDATE_TIME = "2026-10-17T14:30:00+05:30"
 
 

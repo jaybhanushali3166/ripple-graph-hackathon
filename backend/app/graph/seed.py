@@ -4,7 +4,7 @@ Graph model written here:
   Nodes  Customer, Commitment, WorkItem, Person, Team, Source, Decision, Forecast,
          Alias, GraphState. All times are epoch ms ints; a null valid_to is an absent property.
   Edges  HAS_COMMITMENT, REQUIRES, DEPENDS_ON, OWNS, ACCOUNT_OWNER, MEMBER_OF,
-         RESPONSIBLE_FOR (all with source_id + quote properties, from relationships.json);
+         RESPONSIBLE_FOR, DISCUSSED (Person -> WorkItem, "who knows what") (all with source_id + quote properties, from relationships.json);
          (WorkItem)-[:HAS_FORECAST]->(Forecast); (Decision)-[:ESTABLISHES]->(Forecast);
          (Decision)-[:REVISES]->(WorkItem); (Decision)-[:SUPERSEDES]->(Decision);
          (Commitment|Forecast|Decision)-[:SUPPORTED_BY {source_id, quote}]->(Source).
@@ -27,7 +27,7 @@ REL_LABELS = {
     "HAS_COMMITMENT": ("Customer", "Commitment"), "REQUIRES": ("Commitment", "WorkItem"),
     "DEPENDS_ON": ("WorkItem", "WorkItem"), "OWNS": ("Person", "WorkItem"),
     "ACCOUNT_OWNER": ("Person", "Customer"), "MEMBER_OF": ("Person", "Team"),
-    "RESPONSIBLE_FOR": ("Team", "WorkItem")}
+    "RESPONSIBLE_FOR": ("Team", "WorkItem"), "DISCUSSED": ("Person", "WorkItem")}
 KIND_LABELS = {"customer": "Customer", "commitment": "Commitment", "work_item": "WorkItem",
                "person": "Person", "team": "Team", "decision": "Decision"}
 NODE_LABELS = ["Customer", "Commitment", "WorkItem", "Person", "Team", "Source", "Decision",

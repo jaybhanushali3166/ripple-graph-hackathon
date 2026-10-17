@@ -218,8 +218,8 @@ async def test_agent_impact_and_owners_acme_conflict():
     assert res.status == "complete"
     assert res.evidence_version == repo.version
     assert "Acme Corp" in res.answer
-    assert "2026-10-23" in res.answer  # Promise due date
-    assert "2026-10-28" in res.answer  # Revised forecast date
+    assert "23 October 2026" in res.answer  # Promise due date, written for people
+    assert "28 October 2026" in res.answer  # Revised forecast date
     assert "Priya Sharma" in res.answer
     assert "Maya Patel" in res.answer
     assert "replanning" in res.answer
@@ -257,8 +257,8 @@ async def test_agent_lineage_question():
     res = await run_agent(request=req, tools=repo, provider=DeterministicTestDouble())
 
     assert res.status == "complete"
-    assert "2026-10-21" in res.answer
-    assert "2026-10-28" in res.answer
+    assert "21 October 2026" in res.answer
+    assert "28 October 2026" in res.answer
     assert "DEC-12" in res.answer
     assert "dec_live_permissions_001" in res.answer
     assert "Recorded vs. Inferred Facts" in res.answer

@@ -6,6 +6,8 @@ import { confirmDecision, previewDecision } from '../api/decisions';
 import type { ConfirmRequest, ConfirmResponse, DecisionPreview, Impact } from '../api/types';
 import { useReviewedMutation } from '../hooks/useReviewedMutation';
 import { dateTime, fullDate } from '../lib/dates';
+import { decisionLabel } from '../lib/decisions';
+import { plainWarning } from '../lib/reasons';
 import { sampleNote } from '../lib/sample-note';
 import { InlineNotice } from './InlineNotice';
 
@@ -39,6 +41,8 @@ export function DecisionReviewDialog({
 
   const stale = !!preview && preview.evidence_version !== version;
   const expired = !!preview && preview.expires_at <= now;
+  // The server would reject this confirm: the date is already the accepted forecast.
+  const noChange = !!preview && preview.warnings.some(warning => warning.startsWith('already_recorded'));
 
   function edit(value: string, field: 'text' | 'title') { if (field === 'text') setText(value); else setTitle(value); setPreview(null); setError(null); }
 
@@ -51,7 +55,7 @@ export function DecisionReviewDialog({
   }
 
   async function confirm(replay = false) {
-    if (!preview || (!mutation.uncertain && (stale || expired))) return;
+    if (!preview || (!mutation.uncertain && (stale || expired || noChange))) return;
     setError(null);
     try {
       const result = replay
@@ -91,20 +95,20 @@ export function DecisionReviewDialog({
       {mutation.uncertain && <InlineNotice>The confirmation outcome is unknown. Check or retry the original submission to get its recorded result. Closing preserves the pending request. Abandoning may cause a duplicate if you submit again.</InlineNotice>}
       {preview && <section className="decision-proposal" aria-label="Extracted decision preview">
         <h3>Proposed update</h3><dl>
-          <div><dt>Work item</dt><dd>{workItemName ? `${workItemName} (${preview.proposal.work_item_id})` : preview.proposal.work_item_id}</dd></div>
+          <div><dt>Work item</dt><dd>{workItemName ?? preview.proposal.work_item_id}</dd></div>
           <div><dt>Delivery forecast</dt><dd>{fullDate(preview.proposal.available_at)}</dd></div>
           <div><dt>Decision effective time</dt><dd>{dateTime(preview.proposal.effective_at)}</dd></div>
-          <div><dt>Owner</dt><dd>{ownerName ? `${ownerName} (${preview.proposal.owner_id})` : preview.proposal.owner_id}</dd></div>
-          <div><dt>Supersedes</dt><dd>{preview.proposal.supersedes_id || 'None recorded'}</dd></div>
+          <div><dt>Owner</dt><dd>{ownerName ?? preview.proposal.owner_id}</dd></div>
+          <div><dt>Supersedes</dt><dd>{preview.proposal.supersedes_id ? decisionLabel(preview.proposal.supersedes_id) : 'None recorded'}</dd></div>
           <div><dt>Review expires</dt><dd>{dateTime(preview.expires_at)}</dd></div>
         </dl><blockquote>{preview.proposal.evidence_quote}</blockquote><p className="small muted">Effective time is set by the server at preview creation. Delivery dates mean end of day in IST.</p>
-        {preview.warnings.map((warning, i) => <InlineNotice key={i}>{warning}</InlineNotice>)}
+        {preview.warnings.map((warning, i) => <InlineNotice key={i}>{plainWarning(warning)}</InlineNotice>)}
       </section>}
       <div className="dialog-actions">
         {mutation.uncertain && <button className="button button-quiet" type="button" onClick={abandonUpdate} disabled={mutation.pending}>Abandon update (may duplicate)</button>}
         {mutation.uncertain && <button className="button" type="button" onClick={() => confirm(true)} disabled={mutation.pending}>{mutation.pending ? 'Checking…' : 'Check current state'}</button>}
         <button className="button" type="button" onClick={createPreview} disabled={blocked || !text.trim() || !title.trim()}>{extracting ? 'Creating preview…' : preview ? 'Create fresh preview' : 'Preview decision'}<ArrowRight size={14} aria-hidden="true" /></button>
-        {preview && <button className="button button-primary" type="button" onClick={() => confirm(mutation.uncertain)} disabled={mutation.pending || (!mutation.uncertain && (stale || expired))}><Check size={14} aria-hidden="true" />{mutation.pending ? 'Confirming…' : mutation.uncertain ? 'Retry same confirmation' : 'Confirm reviewed update'}</button>}
+        {preview && <button className="button button-primary" type="button" onClick={() => confirm(mutation.uncertain)} disabled={mutation.pending || (!mutation.uncertain && (stale || expired || noChange))}><Check size={14} aria-hidden="true" />{mutation.pending ? 'Confirming…' : mutation.uncertain ? 'Retry same confirmation' : 'Confirm reviewed update'}</button>}
       </div>
     </Dialog.Content></Dialog.Portal>
   </Dialog.Root>;

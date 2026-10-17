@@ -1,9 +1,16 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Orbit, RefreshCw } from 'lucide-react';
 import { demoEnabled, errorMessage } from './api/client';
+import { getGraph, resetDemo, setDependency } from './api/graph';
+import type { GraphEdge } from './api/types';
+import { useResource } from './hooks/useResource';
+import { SourceTitles, useSourceTitleMap } from './hooks/useSourceTitles';
+import { humanReason } from './lib/reasons';
 import { useWorkspace } from './hooks/useWorkspace';
 import { CommitmentDetail } from './components/CommitmentDetail';
 import { CommitmentList } from './components/CommitmentList';
+import { DemoGuide } from './components/DemoGuide';
+import { RippleGraph } from './components/RippleGraph';
 import { DecisionReviewDialog } from './components/DecisionReviewDialog';
 import { FollowUpPanel } from './components/FollowUpPanel';
 import { InlineNotice } from './components/InlineNotice';
@@ -21,13 +28,14 @@ export default function App() {
   const [invalidatedVersion, setInvalidatedVersion] = useState<string | null>(null);
   const [queuedStaleRefresh, setQueuedStaleRefresh] = useState<string | null>(null);
   const [changedCommitmentIds, setChangedCommitmentIds] = useState<Set<string>>(new Set());
+  const [demoBusy, setDemoBusy] = useState(false);
   // Survives grid unmounts, selection changes, and refreshes of the same evidence.
   const actionRefreshVersions = useRef<Set<string>>(new Set());
   const preConfirmStatuses = useRef<Map<string, string>>(new Map());
   const awaitingConfirmHighlight = useRef(false);
   const sourceTrigger = useRef<HTMLElement | null>(null);
 
-  const locked = decisionLocked || actionLocked;
+  const locked = decisionLocked || actionLocked || demoBusy;
   const onDecisionLock = useCallback((value: boolean) => setDecisionLocked(value), []);
   const onActionLock = useCallback((value: boolean) => setActionLocked(value), []);
   const onEvidenceReady = useCallback((context: string | null) => setVerifiedContext(context), []);
@@ -114,9 +122,44 @@ export default function App() {
   }, [changedCommitmentIds]);
 
   const version = workspace.data?.evidence_version ?? null;
-  const conflicts = workspace.data?.impacts.filter(impact => impact.status === 'date_conflict').length ?? 0;
+  const atRisk = workspace.data?.impacts.filter(impact => impact.status === 'date_conflict') ?? [];
+  const conflicts = atRisk.length;
+  const sourceTitles = useSourceTitleMap(version);
+  const graph = useResource(version ? `graph:${version}` : null, getGraph);
+  const impactsById = new Map(workspace.data?.impacts.map(impact => [impact.commitment_id, impact]) ?? []);
+
+  async function runDemoChange(change: () => Promise<unknown>, message: string, highlight = false) {
+    if (locked || !canDiscardDraft()) return;
+    setDemoBusy(true);
+    if (highlight) {
+      awaitingConfirmHighlight.current = true;
+      preConfirmStatuses.current = new Map(workspace.data?.impacts.map(i => [i.commitment_id, i.status]) ?? []);
+    }
+    try { await change(); refresh(message); }
+    catch (cause) { awaitingConfirmHighlight.current = false; setNotice(errorMessage(cause)); }
+    finally { setDemoBusy(false); }
+  }
+
+  function handleReset() {
+    if (!window.confirm('Reset the shared demo to its starting state? Anyone else viewing will see the reset too.')) return;
+    void runDemoChange(resetDemo, 'Demo reset. Every promise is back on its original plan.');
+  }
+
+  function handleToggle(edge: GraphEdge, present: boolean, label: string) {
+    if (!version) return;
+    const prompt = present
+      ? `Restore the recorded dependency "${label}"? Impacts are recomputed from the graph.`
+      : `Cut "${label}"? Ripple recomputes every promise from the graph without it. You can restore it afterwards.`;
+    if (!window.confirm(prompt)) return;
+    void runDemoChange(
+      () => setDependency({ from_id: edge.from_id, to_id: edge.to_id, present, expected_version: version }),
+      present ? `Restored: ${label}. Impacts recomputed from the graph.` : `Cut: ${label}. Impacts recomputed from the graph without it.`,
+      present,
+    );
+  }
 
   return (
+    <SourceTitles.Provider value={sourceTitles}>
     <div className="app-frame">
       <a className="skip-link" href="#workspace">Skip to commitments</a>
       {demoEnabled && DemoControls && (
@@ -144,7 +187,7 @@ export default function App() {
             <h1>Commitments</h1>
             <p className="muted">
               {workspace.data
-                ? `${workspace.data.impacts.length} promises tracked · ${conflicts ? `${conflicts} date conflicts to review` : 'No detected date conflicts'}`
+                ? `${workspace.data.impacts.length} promises tracked · ${conflicts ? `${conflicts} at risk: ${atRisk.map(impact => impact.customer.name).join(', ')}` : 'All on track'}`
                 : 'Trace delivery changes to the promises that depend on them.'}
             </p>
           </div>
@@ -182,8 +225,34 @@ export default function App() {
             <InlineNotice>
               {workspace.data.completeness.truncated && <p>Results are bounded or truncated. They are not exhaustive.</p>}
               {!workspace.data.completeness.complete && <p>Some evidence needs verification.</p>}
-              {workspace.data.completeness.warnings.map((warning, i) => <p key={i}>{warning}</p>)}
+              {workspace.data.completeness.warnings.map((warning, i) => {
+                const [id, ...rest] = warning.split(': ');
+                const impact = impactsById.get(id);
+                return <p key={i}>{impact ? `${impact.customer.name}: ${humanReason(rest.join(': '), impact)}` : warning}</p>;
+              })}
             </InlineNotice>
+          </div>
+        )}
+        {workspace.data && !workspace.error && (
+          <div className="workspace-band">
+            <DemoGuide conflicts={conflicts} cutEdges={graph.data?.removed_edges.length ?? 0} busy={locked || workspace.loading} onReset={handleReset} />
+            {graph.data && graph.data.evidence_version === version && (
+              <RippleGraph
+                graph={graph.data}
+                impacts={workspace.data.impacts}
+                selectedId={workspace.selected?.commitment_id ?? null}
+                changedIds={changedCommitmentIds}
+                busy={locked || workspace.loading}
+                onSelect={id => {
+                  if (!locked && (id === workspace.selected?.commitment_id || canDiscardDraft())) {
+                    setSource(null);
+                    workspace.select(id);
+                  }
+                }}
+                onToggle={handleToggle}
+              />
+            )}
+            {!!graph.error && <InlineNotice tone="error">The graph view is unavailable: {errorMessage(graph.error)}</InlineNotice>}
           </div>
         )}
         <div id="workspace" className={workspace.data?.impacts.length ? 'workspace-grid' : 'workspace-empty'} aria-busy={workspace.loading}>
@@ -246,5 +315,6 @@ export default function App() {
       </div>
       <SourceDrawer source={source} version={version ?? ''} onClose={() => setSource(null)} returnFocus={sourceTrigger.current} />
     </div>
+    </SourceTitles.Provider>
   );
 }

@@ -7,7 +7,8 @@ import type { ActionRequest, ActionResponse, AgentResponse, Impact } from '../ap
 import { useReviewedMutation } from '../hooks/useReviewedMutation';
 import { InlineNotice } from './InlineNotice';
 import { SavedActions } from './SavedActions';
-import { SourceButton, type OpenSource } from './SourceButton';
+import { RichText } from './RichText';
+import { SourceChips, type OpenSource } from './SourceButton';
 import { ToolTrace } from './ToolTrace';
 
 export function FollowUpPanel({
@@ -87,6 +88,7 @@ export function FollowUpPanel({
   const blockerName = impact.blockers[0]?.name;
   const lineageSubject = blockerName ? blockerName.toLowerCase() : impact.title.toLowerCase();
   const lineagePrompt = `Why did the ${lineageSubject} forecast change?`;
+  const expertPrompt = `Who knows the most about the ${lineageSubject}?`;
 
   async function ask(question: string) {
     if (!question.trim() || mutation.blocked || contextStale || !canDiscardEdits()) return;
@@ -127,6 +129,9 @@ export function FollowUpPanel({
       <button type="button" className="prompt-button" disabled={running || mutation.blocked || contextStale} onClick={() => ask(lineagePrompt)}>
         <MessageSquareText size={14} aria-hidden="true" />Why did the forecast change?
       </button>
+      <button type="button" className="prompt-button" disabled={running || mutation.blocked || contextStale} onClick={() => ask(expertPrompt)}>
+        <MessageSquareText size={14} aria-hidden="true" />Who knows the most about it?
+      </button>
     </div>
     <form className="question-form" onSubmit={event => { event.preventDefault(); void ask(message); }}><label htmlFor="followup-question" className="sr-only">Ask about impact or decision lineage</label><input id="followup-question" value={message} onChange={event => setMessage(event.target.value)} placeholder="Ask about impact or lineage…" disabled={mutation.blocked} /><button type="submit" className="button button-icon" aria-label="Ask about this commitment" disabled={running || mutation.blocked || contextStale || !message.trim()}><Send size={14} aria-hidden="true" /></button></form>
     {running && <p className="loading-text" role="status">Investigating the recorded evidence…</p>}
@@ -139,7 +144,7 @@ export function FollowUpPanel({
       </div>
       <p className="small muted">Abandoning an unknown save forgets its retry key. Saving again may create a duplicate.</p>
     </div>}
-    {response && <div className="agent-result"><div className="section-heading"><span className="eyebrow">{response.status === 'partial' ? 'Partial answer' : 'Evidence-backed answer'}</span></div><p className="agent-answer preserve-text">{response.answer}</p><div className="citation-row">{response.citations.map((citation, i) => <SourceButton key={i} source={citation} onOpen={onSource} label={`Source ${i + 1}`} />)}</div>
+    {response && <div className="agent-result"><div className="section-heading"><span className="eyebrow">{response.status === 'partial' ? 'Partial answer' : 'Evidence-backed answer'}</span></div><RichText className="agent-answer" text={response.answer} /><SourceChips citations={response.citations} onOpen={onSource} />
       {response.warnings.map((warning, i) => <InlineNotice key={i}>{warning}</InlineNotice>)}<ToolTrace trace={response.tool_trace} />
     </div>}
     {draft && <section className="draft-editor" aria-label="Draft editor"><label className="field-label" htmlFor="draft-kind">Follow-up type<select id="draft-kind" value={draftIndex} disabled={mutation.blocked} onChange={event => chooseDraft(Number(event.target.value))}>{response!.drafts.map((item, i) => <option value={i} key={i}>{item.kind === 'internal_escalation' ? 'Internal escalation' : 'Customer update'}</option>)}</select></label>

@@ -85,6 +85,8 @@ class ForecastHistoryItem(BaseModel):
     valid_from: int
     valid_to: int | None = None
     decision_id: str  # non-nullable per Review Revision R1
+    supersedes_id: str | None = None
+    decision_summary: str | None = None
     citations: list[SourceRef] = Field(default_factory=list)
 
 
@@ -234,6 +236,72 @@ class DemoResetResponse(BaseModel):
     evidence_version: str
 
 
+class GraphNode(BaseModel):
+    id: str
+    label: str
+    kind: str
+
+
+class GraphEdge(BaseModel):
+    from_id: str
+    to_id: str
+    relation: str
+    source_id: str | None = None
+
+
+class GraphViewResponse(BaseModel):
+    evidence_version: str
+    nodes: list[GraphNode]
+    edges: list[GraphEdge]
+    removed_edges: list[GraphEdge] = Field(default_factory=list)
+    queries: dict[str, str] = Field(default_factory=dict)
+
+
+class SourceSummary(BaseModel):
+    id: str
+    type: str
+    title: str
+    source_timestamp: int
+
+
+class SourceListResponse(BaseModel):
+    sources: list[SourceSummary]
+
+
+class ExpertReason(BaseModel):
+    kind: Literal["owns", "discussed", "member_of"]
+    source_id: str
+    quote: str
+    team: str | None = None
+
+
+class Expert(BaseModel):
+    id: str
+    name: str
+    score: int
+    reasons: list[ExpertReason]
+
+
+class ExpertsResponse(BaseModel):
+    evidence_version: str
+    work_item_id: str
+    experts: list[Expert]
+
+
+class DependencyToggleRequest(BaseModel):
+    from_id: str
+    to_id: str
+    present: bool
+    expected_version: str
+
+
+class DependencyToggleResponse(BaseModel):
+    evidence_version: str
+    from_id: str
+    to_id: str
+    present: bool
+
+
 __all__ = [
     "Completeness",
     "SourceRef",
@@ -265,5 +333,15 @@ __all__ = [
     "ErrorDetail",
     "ErrorEnvelope",
     "HealthResponse",
+    "GraphNode",
+    "GraphEdge",
+    "GraphViewResponse",
+    "SourceSummary",
+    "SourceListResponse",
+    "ExpertReason",
+    "Expert",
+    "ExpertsResponse",
+    "DependencyToggleRequest",
+    "DependencyToggleResponse",
     "DemoResetResponse",
 ]

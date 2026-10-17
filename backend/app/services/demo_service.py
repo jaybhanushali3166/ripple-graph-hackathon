@@ -70,6 +70,18 @@ def get_active_dataset_id() -> str:
     return version.split(":", 1)[0]
 
 
+DEMO_GRAPHS = ("ripple_graph", "ripple_test", "ripple_demo")
+
+
+def require_demo_graph() -> None:
+    """Demo-only mutations (reset, dependency toggle) refuse to touch a non-demo graph."""
+    graph = get_settings().falkordb_graph
+    if graph not in DEMO_GRAPHS:
+        raise ReviewRequired(
+            f"Refused on non-demo graph '{graph}'. Allowed demo graphs: {', '.join(DEMO_GRAPHS)}."
+        )
+
+
 class DemoService:
     """Service to safely handle synthetic demo reseeding and fixture ingestion."""
 
@@ -87,15 +99,8 @@ class DemoService:
         - Clears transient preview proposals.
         """
         global _mock_dataset_id, _mock_revision
-        settings = get_settings()
-
         # Enforce demo scope: refuse resets on production graphs
-        allowed_graphs = ("ripple_graph", "ripple_test", "ripple_demo")
-        if settings.falkordb_graph not in allowed_graphs:
-            raise ReviewRequired(
-                f"Reset refused on non-demo graph '{settings.falkordb_graph}'. "
-                f"Allowed demo graphs: {', '.join(allowed_graphs)}."
-            )
+        require_demo_graph()
 
         repo = get_graph_repository()
         if repo is not None:
