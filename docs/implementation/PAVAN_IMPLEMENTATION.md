@@ -142,15 +142,15 @@ flowchart TD
 
 #### Phase 0: Kickoff, Contract Freeze & Scaffolding Agreement (0:00 – 0:30)
 
-- [ ] **TASK-PVN-001: Review & Freeze Wire Contract under R1**
+- [x] **TASK-PVN-001: Review & Freeze Wire Contract under R1**
   - **Objective**: Freeze `docs/implementation/SHARED_CONTRACT.md` and publish kickoff example JSON with Ashwin, Abhijeet, and Jay.
   - **Details**:
     - Confirm snake_case convention, UTC epoch milliseconds, and opaque `evidence_version`.
     - Publish canonical example JSON set: baseline establishing decisions, component-owner choice, review timestamps, errors (409/410/422/502/503), completeness metadata, nullable owners.
     - Confirm non-nullable `decision_id` per forecast and preserve `DEC-12`.
-  - **Outputs**: Signed-off `SHARED_CONTRACT.md` and published kickoff examples.
+  - **Outputs**: Signed-off `SHARED_CONTRACT.md` and published kickoff examples (`docs/examples/canonical_payloads.json`).
 
-- [ ] **TASK-PVN-002: Agree Python & TypeScript Signatures**
+- [x] **TASK-PVN-002: Agree Python & TypeScript Signatures**
   - **Objective**: Agree on exact internal module entry points and schemas with teammates.
   - **Details**:
     - Confirm Ashwin's `GraphRepository` method signatures (`list_impacts`, `get_source`, `get_history`, `resolve_entity`, `confirm_decision`, `save_action`, `list_actions`, `seed_demo`, `get_version`).
@@ -158,7 +158,7 @@ flowchart TD
     - Confirm Jay's Vite proxy setting (`/api` -> `http://localhost:8000`).
   - **Outputs**: Agreed interfaces recorded in `SHARED_CONTRACT.md`.
 
-- [ ] **TASK-PVN-003: Configure Backend Project Manifests & Settings**
+- [x] **TASK-PVN-003: Configure Backend Project Manifests & Settings**
   - **Objective**: Scaffold backend dependencies and environment definitions.
   - **Target Files**: `backend/pyproject.toml`, `.env.example`, `.gitignore`.
   - **Dependencies**: `fastapi`, `uvicorn[standard]`, `pydantic>=2.0`, `pydantic-settings`, `falkordb`, `httpx`, `pytest`, `pytest-asyncio`.
@@ -168,12 +168,12 @@ flowchart TD
 
 #### Phase 1: Foundation, Schemas, Container & Dev Mocks (0:30 – 2:00)
 
-- [ ] **TASK-PVN-101: Implement Core Settings & App Configuration**
+- [x] **TASK-PVN-101: Implement Core Settings & App Configuration**
   - **Objective**: Provide centralized, typed settings via Pydantic BaseSettings.
   - **Target Files**: `backend/app/settings.py`.
   - **Fields**: `FALKORDB_HOST`, `FALKORDB_PORT`, `FALKORDB_GRAPH`, `API_HOST`, `API_PORT`, `CORS_ORIGINS`, `DEV_MOCKS`, `LLM_API_KEY`, `LLM_MODEL`.
 
-- [ ] **TASK-PVN-102: Implement Shared Pydantic Wire Schemas with R1 Models**
+- [x] **TASK-PVN-102: Implement Shared Pydantic Wire Schemas with R1 Models**
   - **Objective**: Implement authoritative data models strictly matching `SHARED_CONTRACT.md` (R1).
   - **Target Files**: `backend/app/schemas.py`.
   - **Models**:
@@ -187,7 +187,7 @@ flowchart TD
     - `GraphState`, `RequestRecord` operational models.
     - `ErrorEnvelope`, `HealthResponse`, `DemoResetResponse`.
 
-- [ ] **TASK-PVN-103: Setup Docker Compose & Backend Dockerfile**
+- [x] **TASK-PVN-103: Setup Docker Compose & Backend Dockerfile**
   - **Objective**: Multi-container setup for local development and clean checkout.
   - **Target Files**: `docker-compose.yml`, `backend/Dockerfile`.
   - **Details**:
@@ -195,7 +195,7 @@ flowchart TD
     - Backend service on port `8000`, mounting code for hot-reload during dev.
     - Healthcheck probe on FalkorDB.
 
-- [ ] **TASK-PVN-104: FastAPI Application Scaffold & Error Envelopes**
+- [x] **TASK-PVN-104: FastAPI Application Scaffold & Error Envelopes**
   - **Objective**: Initialize FastAPI app with standardized error mapping and single-worker lock.
   - **Target Files**: `backend/app/main.py`, `backend/app/__init__.py`.
   - **Details**:
@@ -204,7 +204,7 @@ flowchart TD
     - Global exception handlers converting `RequestValidationError`, `HTTPException`, and domain errors into `{ "error": { "code": ..., "message": ..., "details": ... } }`.
     - CORS middleware supporting `http://localhost:5173`.
 
-- [ ] **TASK-PVN-105: Scaffold Route Modules & Mock Development Mode**
+- [x] **TASK-PVN-105: Scaffold Route Modules & Mock Development Mode**
   - **Objective**: Create all router files and provide realistic mock responses for Jay and Abhijeet.
   - **Target Files**:
     - `backend/app/api/health.py`
@@ -219,7 +219,7 @@ flowchart TD
     - When `DEV_MOCKS=True`, endpoints return the canonical 4-customer scenario payload (Acme, Birch, Cedar, Delta with complete provenance) and DEC-12 preview data.
     - Explicit header/flag indicating mock mode.
 
-- [ ] **TASK-PVN-106: Hour 2 Handoff Delivery**
+- [x] **TASK-PVN-106: Hour 2 Handoff Delivery**
   - **Objective**: Verify and hand off runnable backend to Jay and Abhijeet.
   - **Deliverables**:
     - `GET /api/health` returning `{"status": "ok"}`.
