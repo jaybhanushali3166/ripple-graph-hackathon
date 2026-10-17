@@ -107,7 +107,7 @@ class GraphWrites:
         wi_id = proposal["work_item_id"]
         available_at, effective_at = proposal["available_at"], proposal["effective_at"]
         self._require_current(expected_version)
-        decision_id = "dec_" + _sha(dataset_id, source["id"], wi_id, available_at)[:16]
+        decision_id = self._next_decision_code()
         forecast_id = "fc_" + _sha(dataset_id, source["id"], wi_id, available_at)[:16]
         try:
             wi_name = self._validate_confirm(proposal, source, wi_id, effective_at, now)
@@ -136,6 +136,12 @@ class GraphWrites:
         if not written["rows"]:
             return self._fail_gate(dataset_id, revision, "confirm_decision", idempotency_key, request_hash)
         return result
+
+    def _next_decision_code(self):
+        """The next "DEC-<n>" after the highest one in the graph. The revision gate makes
+        a concurrent writer that picked the same code fail without writing."""
+        numbers = [int(r[0][4:]) for r in self.client.read(load_query("decision_codes")) if r[0][4:].isdigit()]
+        return "DEC-%d" % (max(numbers, default=0) + 1)
 
     def _validate_confirm(self, proposal, source, wi_id, effective_at, now):
         rows = self.client.read(load_query("confirm_context"), {"id": wi_id})
@@ -172,6 +178,27 @@ class GraphWrites:
         if expected_version != current:
             raise StaleEvidence("evidence version is %s, not %s" % (current, expected_version),
                                 {"current_version": current})
+
+    # ---- demo ablation
+    def set_dependency(self, from_id, to_id, present, source_id, quote, expected_version):
+        """Remove or restore one DEPENDS_ON edge. Returns the new evidence version.
+
+        Proves the graph decides impact: without the edge the flag disappears. The caller
+        supplies the edge's original provenance, so a restored edge is the recorded one.
+        """
+        dataset_id, revision = _parse_version(expected_version)
+        self._require_current(expected_version)
+        params = {"dataset": dataset_id, "expected_revision": revision, "from_id": from_id, "to_id": to_id}
+        if present:
+            written = self.client.write(load_query("dependency_restore"),
+                                        dict(params, source_id=source_id, quote=quote))
+        else:
+            written = self.client.write(load_query("dependency_remove"), params)
+        if not written["rows"]:
+            self._require_current(expected_version)
+            raise ReviewRequired("dependency %s -> %s is already %s" % (from_id, to_id,
+                                                                       "present" if present else "removed"))
+        return "%s:%d" % (dataset_id, written["rows"][0][0])
 
     # ---- save_action
     def save_action(self, action, expected_version, idempotency_key, now_ms=None):

@@ -88,6 +88,52 @@ class GraphRepository:
                               "citations": cited})
         return sorted(forecasts, key=lambda f: (f["valid_from"], f["id"]))
 
+    # ---- who knows what
+    def get_experts(self, work_item_id):
+        """People who know a work item, strongest signal first.
+
+        Owning it scores 3, each source where a person discussed it scores 1, and being on
+        the responsible team scores 1. Scores only rank; every reason keeps its quote.
+        """
+        def read():
+            if not self.client.read("MATCH (w:WorkItem {id: $wid}) RETURN w.id", {"wid": work_item_id}):
+                raise NotFound("work item %r not found" % work_item_id)
+            people = {}
+            for person_id, name, relation, source_id, quote in self.client.read(load_query("experts"),
+                                                                                  {"wid": work_item_id}):
+                entry = people.setdefault(person_id, {"id": person_id, "name": name, "score": 0, "reasons": []})
+                kind, _, team = relation.partition(":")
+                reason = {"kind": kind.lower(), "source_id": source_id, "quote": quote}
+                if team:
+                    reason["team"] = team
+                if reason in entry["reasons"]:
+                    continue
+                entry["reasons"].append(reason)
+                entry["score"] += 3 if kind == "OWNS" else 1
+            return sorted(people.values(), key=lambda p: (-p["score"], p["name"]))
+        version, experts = self._consistent(read)
+        return {"evidence_version": version, "work_item_id": work_item_id, "experts": experts}
+
+    # ---- whole-graph view
+    def get_graph(self):
+        """Customers, commitments and work items with the edges that connect them, for display."""
+        def read():
+            nodes = [{"id": i, "label": label, "kind": kind}
+                     for i, label, kind in self.client.read(load_query("graph_nodes"))]
+            edges = [{"from_id": a, "to_id": b, "relation": rel, "source_id": src}
+                     for a, b, rel, src in self.client.read(load_query("graph_edges"))]
+            return {"nodes": sorted(nodes, key=lambda n: n["id"]),
+                    "edges": sorted(edges, key=lambda e: (e["relation"], e["from_id"], e["to_id"]))}
+        version, graph = self._consistent(read)
+        return dict(graph, evidence_version=version)
+
+    def list_decisions(self):
+        return [{"id": d, "revises_work_item_id": w} for d, w in self.client.read(load_query("decisions"))]
+
+    def list_sources(self):
+        rows = self.client.read("MATCH (s:Source) RETURN s.id, s.type, s.title, s.source_timestamp ORDER BY s.id")
+        return [{"id": i, "type": t, "title": title, "source_timestamp": ts} for i, t, title, ts in rows]
+
     # ---- impacts
     def list_impacts(self, as_of_ms):
         version, impacts = self._consistent_impacts(as_of_ms, None)
@@ -278,6 +324,9 @@ class GraphRepository:
 
     def list_actions(self, commitment_id):
         return self._writes().list_actions(commitment_id)
+
+    def set_dependency(self, from_id, to_id, present, source_id, quote, expected_version):
+        return self._writes().set_dependency(from_id, to_id, present, source_id, quote, expected_version)
 
 
 def _person(owner):

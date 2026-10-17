@@ -1,7 +1,7 @@
 // Scripted, browser-memory fixtures only. No graph, model, extraction, or durability claims.
 import { ApiError, type Transport } from '../api/client';
 import type { ActionRequest, ActionResponse, AgentRequest, AgentResponse, ConfirmRequest, DecisionPreview, Draft, SavedAction } from '../api/types';
-import { canonicalNote, endOfIstDay, historyFixture, impactFixture, people, sources } from './fixtures';
+import { canonicalNote, endOfIstDay, historyFixture, impactFixture, people, sources, workItems } from './fixtures';
 
 export type DemoScenario = 'baseline' | 'changed' | 'missing_owner' | 'partial_ai';
 let changed = false, scenario: DemoScenario = 'baseline', revision = 0, dataset = crypto.randomUUID(), effectiveAt = Date.now();
@@ -34,6 +34,24 @@ export const demoTransport: Transport = async (path, init) => {
   });
   const body = init?.body ? JSON.parse(String(init.body)) : {};
   if (path === '/impacts') return impactFixture(changed, version(), scenario === 'missing_owner');
+  if (path === '/sources') return { sources: Object.values(sources).map(({ id, type, title, source_timestamp }) => ({ id, type, title, source_timestamp })) };
+  if (path === '/graph') {
+    const impacts = impactFixture(changed, version(), scenario === 'missing_owner').impacts;
+    const nodes = new Map<string, { id: string; label: string; kind: string }>(), edges = new Map<string, { from_id: string; to_id: string; relation: string; source_id: string }>();
+    for (const impact of impacts) for (const path of impact.paths) {
+      path.nodes.forEach(node => nodes.set(node.id, node.kind === 'commitment' ? { ...node, label: impact.title } : node));
+      path.edges.forEach(edge => edges.set(`${edge.from_id}>${edge.to_id}`, edge));
+    }
+    return { evidence_version: version(), nodes: [...nodes.values()], edges: [...edges.values()], removed_edges: [], queries: { impact_blockers: '// Development fixtures: no graph is connected.' } };
+  }
+  const experts = path.match(/^\/work-items\/([^/]+)\/experts$/);
+  if (experts) {
+    const work = workItems[decodeURIComponent(experts[1])];
+    if (!work) fail(404, 'not_found', 'Unknown work item.');
+    return { evidence_version: version(), work_item_id: experts[1], experts: [{ id: work.owner, name: people[work.owner].name, score: 3, reasons: [{ kind: 'owns', source_id: 'src_owners', quote: sources.src_owners.body.split('. ')[0] }] }] };
+  }
+  if (path === '/demo/reset') { setDemoScenario('baseline'); return { status: 'reset', dataset_id: dataset, evidence_version: version() }; }
+  if (path === '/demo/dependency') fail(422, 'review_required', 'Cutting dependencies needs the live graph backend.');
   if (path.startsWith('/sources/')) {
     const source = sources[decodeURIComponent(path.slice('/sources/'.length))];
     return source ? structuredClone({ ...source, source_timestamp: source.id === 'src_revised_permissions' ? effectiveAt : source.source_timestamp }) : fail(404, 'source_not_found', 'This source record is unavailable.');

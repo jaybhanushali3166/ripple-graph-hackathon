@@ -250,5 +250,47 @@
     "to_id": "wi_export_worker",
     "source_id": "src_owners",
     "quote": "Data team is responsible for: audit-log feature, data export feature, export worker."
+  },
+  {
+    "type": "DISCUSSED",
+    "from_id": "person_priya",
+    "to_id": "wi_permissions",
+    "source_id": "src_platform_chat",
+    "quote": "[09:46] Priya: Dropping custom role templates for v1. That should get us to October 21."
+  },
+  {
+    "type": "DISCUSSED",
+    "from_id": "person_priya",
+    "to_id": "wi_permissions",
+    "source_id": "src_permissions_ticket",
+    "quote": "Priya (2026-09-30 16:40): Load tests pass on staging. Holding the October 21 date."
+  },
+  {
+    "type": "DISCUSSED",
+    "from_id": "person_lena",
+    "to_id": "wi_permissions",
+    "source_id": "src_platform_chat",
+    "quote": "[09:41] Lena: Where are we on the permissions service? Identity migration is waiting on it."
+  },
+  {
+    "type": "DISCUSSED",
+    "from_id": "person_lena",
+    "to_id": "wi_permissions",
+    "source_id": "src_permissions_ticket",
+    "quote": "Reporter: Lena   Assignee: Priya"
+  },
+  {
+    "type": "DISCUSSED",
+    "from_id": "person_omar",
+    "to_id": "wi_audit",
+    "source_id": "src_data_chat",
+    "quote": "[10:12] Omar: Quick status on the audit-log feature - the retention job is merged."
+  },
+  {
+    "type": "DISCUSSED",
+    "from_id": "person_eli",
+    "to_id": "wi_audit",
+    "source_id": "src_data_chat",
+    "quote": "[10:14] Eli: Nice. Are we still on for October 24?"
   }
 ]

@@ -28,6 +28,7 @@ class GraphRepositoryProtocol(Protocol):
     def get_evidence(self, commitment_id: str, as_of_ms: int | None) -> dict[str, Any]: ...
     def get_owners(self, commitment_id: str, as_of_ms: int | None) -> dict[str, Any]: ...
     def resolve_entity(self, query: str, kind: str | None = None) -> list[dict[str, Any]]: ...
+    def get_experts(self, work_item_id: str) -> dict[str, Any]: ...
 
 
 class ToolBudgetExceededError(Exception):
@@ -117,6 +118,20 @@ TOOL_DECLARATIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "find_experts",
+        "description": "Find who knows a work item: its owner, people who discussed it in chats, tickets and meetings, and the responsible team, ranked, each reason with an exact source quote.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "work_item_id": {
+                    "type": "string",
+                    "description": "The work item ID (e.g. 'wi_permissions'). Resolve names with resolve_entity first.",
+                },
+            },
+            "required": ["work_item_id"],
+        },
+    },
+    {
         "name": "get_source",
         "description": "Retrieve full source record with body, title, and timestamp by source ID to inspect exact source quotes.",
         "parameters": {
@@ -195,6 +210,7 @@ class AgentTools:
             "histories": {},
             "entities": {},
             "owners": {},
+            "experts": {},
             "drafts": [],
         }
         self.latest_evidence_version: str | None = None
@@ -341,6 +357,28 @@ class AgentTools:
         except Exception as exc:
             self._record_call("get_forecast_history", args, [], "error")
             self._add_warning(f"get_forecast_history failed for '{work_item_id}': {exc}")
+            raise
+
+    def find_experts(self, work_item_id: str) -> dict[str, Any]:
+        """Rank the people who know a work item, keeping every reason's quote."""
+        self._check_budget("find_experts")
+        args = {"work_item_id": work_item_id}
+        try:
+            res = self.repo.get_experts(work_item_id)
+            if res.get("evidence_version"):
+                self.latest_evidence_version = res["evidence_version"]
+            evidence_ids = [e["id"] for e in res.get("experts", [])]
+            for expert in res.get("experts", []):
+                for reason in expert.get("reasons", []):
+                    cit = {"source_id": reason["source_id"], "quote": reason["quote"]}
+                    if cit not in self.accumulated_evidence["citations"]:
+                        self.accumulated_evidence["citations"].append(cit)
+            self.accumulated_evidence["experts"][work_item_id] = res
+            self._record_call("find_experts", args, evidence_ids, "ok")
+            return res
+        except Exception as exc:
+            self._record_call("find_experts", args, [], "error")
+            self._add_warning(f"find_experts failed for '{work_item_id}': {exc}")
             raise
 
     def get_source(self, source_id: str) -> dict[str, Any]:

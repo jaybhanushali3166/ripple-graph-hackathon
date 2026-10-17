@@ -1,0 +1,20 @@
+name: Keep Demo Warm
+
+# Render's free tier sleeps after ~15 idle minutes, so a judge's first visit can wait 30-60s
+# for a cold start. Pinging the health check every 10 minutes keeps the demo awake.
+# Override the target with the KEEP_WARM_URL repository variable.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping health check
+        env:
+          URL: ${{ vars.KEEP_WARM_URL || 'https://ripple-graph-hackathon.onrender.com/api/health' }}
+        run: |
+          curl --silent --show-error --fail --max-time 90 --retry 2 --retry-delay 10 "$URL"

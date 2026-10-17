@@ -3,6 +3,17 @@
 > **Track 3 Hackathon Entry**  
 > *Predicting broken promises before they happen.*
 
+**Live demo:** <https://ripple-graph-hackathon.onrender.com/>
+
+### 60-second tour
+
+1. **Reset demo** (top of the page). All four promises are on track.
+2. **Review decision** → *Use the synthetic sample note* → *Preview* → *Confirm*. The permissions service slips from 21 to 28 October as `DEC-13`, superseding `DEC-12`.
+3. Watch **the ripple map**: the red path runs from *Permissions service* back to Acme (5 days late) and Birch (2 days late). Cedar and Delta, the controls, stay clear.
+4. Click any source chip to see the exact quoted passage highlighted in the original document.
+5. Ask the follow-up assistant *Who knows the most about it?*. It walks `Person -[:OWNS|DISCUSSED|MEMBER_OF]->` edges and cites the chat and ticket lines.
+6. **Prove it is the graph:** cut the *Identity migration → Permissions service* edge (scissors icon). Acme clears immediately. Restore it and the flag returns. *Show the Cypher* displays the traversal that decides it.
+
 ---
 
 ## Value Proposition
@@ -38,7 +49,7 @@ flowchart TD
     
     subgraph Data["Persistence & Models"]
         FalkorDB[("FalkorDB Graph Database<br/>(GraphState & RequestRecord)")]
-        LLM["Bounded Gemini Agent<br/>(Strict Evidence Versioning)"]
+        LLM["Bounded LLM Agent<br/>(Strict Evidence Versioning)"]
     end
 
     Client --> Router
@@ -135,10 +146,10 @@ The frontend development server starts at [http://localhost:5173](http://localho
 
 ## Interactive Demo Flow & Walkthrough
 
-Ripple includes a canonical 4-customer scenario (`Acme Corp`, `Birch Technologies`, `Cedar Enterprises`, `Delta Global`). Follow this sequential flow to test the system end-to-end:
+Ripple includes a canonical 4-customer scenario (`Acme`, `Birch`, `Cedar`, `Delta`). Follow this sequential flow to test the system end-to-end:
 
 ### Step 1: Reset Demo Graph
-Initialize a clean synthetic demo state. This creates a fresh dataset identity (`ds_<uuid>`) and resets the revision to `rev_1`:
+Initialize a clean synthetic demo state. This creates a fresh dataset identity (a 32-character hex ID) and resets the revision to `0`:
 ```bash
 curl -X POST http://localhost:8000/api/demo/reset
 ```
@@ -146,8 +157,8 @@ curl -X POST http://localhost:8000/api/demo/reset
 ```json
 {
   "status": "reset",
-  "dataset_id": "ds_a1b2c3d4",
-  "evidence_version": "ds_a1b2c3d4:rev_1"
+  "dataset_id": "200c1575b9cd4ce08f292f02b281af8b",
+  "evidence_version": "200c1575b9cd4ce08f292f02b281af8b:0"
 }
 ```
 
@@ -181,7 +192,7 @@ curl -X POST http://localhost:8000/api/decisions/confirm \
     "idempotency_key": "idem_demo_confirm_001"
   }'
 ```
-*Outcome*: Atomically cuts over the forecast, links `DEC-13 -ESTABLISHES-> Forecast`, invalidates the preview, and advances knowledge version to `rev_2`.
+*Outcome*: Atomically cuts over the forecast, links `DEC-13 -ESTABLISHES-> Forecast`, invalidates the preview, and advances the knowledge revision by one (`…:0` → `…:1`). Confirmed decisions are numbered after the highest existing code, so this one is `DEC-13`.
 
 ### Step 5: Inspect Updated Impacts (R1 Owner Resolution)
 Re-query impacts to observe the ripple effect:
@@ -189,13 +200,13 @@ Re-query impacts to observe the ripple effect:
 curl http://localhost:8000/api/impacts
 ```
 *Outcome*:
-- **Acme Corp (`com_acme_sso`)**: Status `date_conflict` (Oct 28 delivery violates Oct 23 SLA). Resolved engineering owner: **Priya Sharma** (blocking component owner).
-- **Birch Tech (`com_birch_audit`)**: Status `date_conflict` (Oct 28 delivery violates Oct 26 SLA). Resolved engineering owner: **Priya Sharma**.
-- **Cedar Enterprises (`com_cedar_export`)**: Control customer. Status remains `no_detected_conflict` (no permissions dependency).
-- **Delta Global (`com_delta_sso`)**: Status remains `no_detected_conflict` (due Nov 5, after Oct 28).
+- **Acme (`com_acme_sso`)**: Status `date_conflict` (Oct 28 delivery violates Oct 23 SLA). Resolved engineering owner: **Priya Raman** (blocking component owner).
+- **Birch (`com_birch_audit`)**: Status `date_conflict` (Oct 28 delivery violates Oct 26 SLA). Resolved engineering owner: **Priya Raman**.
+- **Cedar (`com_cedar_export`)**: Control customer. Status remains `no_detected_conflict` (no permissions dependency).
+- **Delta (`com_delta_sso`)**: Status remains `no_detected_conflict` (due Nov 5, after Oct 28).
 
 ### Step 6: Run Agent for Impact Analysis & Decision Lineage
-Ask the bounded agent to analyze Acme Corp's broken promise and its decision lineage:
+Ask the bounded agent to analyze Acme's broken promise and its decision lineage:
 ```bash
 curl -X POST http://localhost:8000/api/agent/run \
   -H "Content-Type: application/json" \
@@ -205,7 +216,7 @@ curl -X POST http://localhost:8000/api/agent/run \
     "expected_version": "<evidence_version_from_step_4>"
   }'
 ```
-*Outcome*: Returns verifiable answer with exact source citations, tool trace, and actionable draft escalations assigned to Priya Sharma.
+*Outcome*: Returns verifiable answer with exact source citations, tool trace, and actionable draft escalations assigned to Priya Raman.
 
 ### Step 7: Persist Reviewed Follow-Up Action
 Human operator reviews and saves the escalation draft:
@@ -240,17 +251,17 @@ Ripple implements the agreed architecture from `SHARED_CONTRACT.md` and Review R
    - The decision's effective time is assigned by the server at preview creation (`preview_created_at`), not chosen by the model or client.
    - Explicit requests for custom historical backdating or future effective times return HTTP 422 `review_required` to prevent unauthorized retroactive modifications. Future delivery forecasts remain fully supported.
 2. **R1 Owner Resolution for Date Conflicts**:
-   - For `date_conflict` commitments, `engineering_owner` resolves to the unique owner across all blocking WorkItems (**Priya Sharma** for permissions blockers), *not* the downstream feature owner.
+   - For `date_conflict` commitments, `engineering_owner` resolves to the unique owner across all blocking WorkItems (**Priya Raman** for permissions blockers), *not* the downstream feature owner.
    - If blockers have conflicting or ambiguous ownership, `engineering_owner` is set to `null` with an explicit reason warning.
 3. **Status Precedence Rules**:
    - Missing or ambiguous ownership yields `needs_verification` *unless* a confirmed date conflict exists, in which case `date_conflict` takes precedence with an unresolved-owner warning.
    - `no_detected_conflict` strictly requires complete, verified evidence along all bounded dependency paths.
-4. **Opaque Evidence Versioning (`<dataset_id>:rev_<rev>`)**:
-   - All read responses include an opaque version string (e.g. `ds_xyz:rev_1`).
+4. **Opaque Evidence Versioning (`<dataset_id>:<revision>`)**:
+   - All read responses include an opaque version string (e.g. `200c1575…:1`).
    - Mutations (`/api/decisions/confirm`, `/api/actions`) and agent runs enforce `expected_version`.
    - Stale versions are immediately rejected with HTTP 409 `stale_evidence`, preventing dirty writes and phantom updates.
-5. **Two Bounded Question Types for Agent**:
-   - The agent supports exactly two question scopes: (1) affected customer promises and accountable owners, and (2) forecast and decision lineage ("Why did this change?").
+5. **Three Bounded Question Types for Agent**:
+   - The agent supports three question scopes: (1) affected customer promises and accountable owners, (2) forecast and decision lineage ("Why did this change?"), and (3) who knows what ("Who knows the most about the permissions service?"), answered from `OWNS`, `DISCUSSED` and team-membership edges with quoted sources.
    - Speculative unbounded replanning and broad Q&A are strictly deferred; dependency delays are flagged as requiring replanning, not automatically recalculated schedules.
 
 ---
@@ -276,7 +287,7 @@ source .venv/bin/activate
 pytest tests/ -v
 ```
 
-*Results*: **39 passed**, 0 failed in ~0.16s. See [`docs/verification.md`](file:///Users/pavan/Build/ripple/docs/verification.md) for the detailed test execution matrix, negative test verifications, and concurrency proofs.
+*Results*: **271 passed**, 8 skipped (opt-in TLS, restart and timing checks) with a local FalkorDB running; without FalkorDB the graph tests skip. Frontend: `cd frontend && npm test` (49 passed). See [`docs/verification.md`](docs/verification.md) for the test matrix, negative tests, and concurrency proofs.
 
 ---
 

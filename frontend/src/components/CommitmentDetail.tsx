@@ -6,10 +6,12 @@ import type { HistoryResponse, Impact, Person } from '../api/types';
 import { useResource } from '../hooks/useResource';
 import { fullDate } from '../lib/dates';
 import { forecastAt, requiredRoots } from '../lib/evidence';
+import { daysLate, humanReason, lateLabel } from '../lib/reasons';
 import { EvidencePath } from './EvidencePath';
 import { ForecastHistory } from './ForecastHistory';
 import { InlineNotice } from './InlineNotice';
-import { SourceButton, type OpenSource } from './SourceButton';
+import { SourceChips, type OpenSource } from './SourceButton';
+import { WhoKnows } from './WhoKnows';
 import { StatusBadge } from './StatusBadge';
 
 function Owner({ person, role }: { person: Person | null; role: string }) {
@@ -25,12 +27,14 @@ export function CommitmentDetail({ impact, version, asOf, onSource, onRefresh, o
     if (results.some(([, result]) => result.evidence_version !== version)) throw new ApiError(409, 'stale_evidence', 'The forecast history changed. Refresh the workspace before reviewing.');
     return Object.fromEntries(results) as Record<string, HistoryResponse>;
   });
+  const late = daysLate(impact);
+  const expertSubject = impact.blockers[0] ? { id: impact.blockers[0].work_item_id, label: impact.blockers[0].name } : roots[0] ? { id: roots[0], label: '' } : null;
   const labels = Object.fromEntries(nodes.map(node => [node.id, node.label]));
   const missingForecastIds = history.data ? ids.filter(id => !forecastAt(history.data![id]?.forecasts ?? [], asOf)) : [];
   const evidenceReady = !!history.data && roots.length > 0 && missingForecastIds.length === 0;
   useEffect(() => { onEvidenceReady(evidenceReady ? `${version}:${impact.commitment_id}` : null); return () => onEvidenceReady(null); }, [evidenceReady, version, impact.commitment_id, onEvidenceReady]);
   return <main className="commitment-detail" aria-label="Selected commitment" aria-busy={history.loading}>
-    <div className="detail-top"><span className="small muted">{impact.customer.name} / Customer commitment</span><StatusBadge status={impact.status} /></div>
+    <div className="detail-top"><span className="small muted">{impact.customer.name} / Customer commitment</span><span className="detail-badges">{late !== null && <span className="late-badge">{lateLabel(late)}</span>}<StatusBadge status={impact.status} /></span></div>
     <h2>{impact.title}</h2><p className="detail-subtitle">A customer promise connected to engineering delivery.</p>
     <div className="date-comparison"><div><span className="date-label">Promised by</span><strong>{fullDate(impact.due_at)}</strong></div>
       {roots.map(id => { const forecast = history.data && forecastAt(history.data[id]?.forecasts ?? [], asOf); return <div key={id}><span className="date-label">Recorded feature forecast{roots.length > 1 ? ` · ${labels[id] || id}` : ''}</span><strong>{forecast ? fullDate(forecast.available_at) : history.loading ? 'Loading…' : 'Needs verification'}</strong></div>; })}
@@ -39,12 +43,13 @@ export function CommitmentDetail({ impact, version, asOf, onSource, onRefresh, o
     {!roots.length && <InlineNotice>No required feature was identified in the returned evidence. Verify the path before reviewing.</InlineNotice>}
     {missingForecastIds.length > 0 && <InlineNotice>Active forecast evidence is missing or conflicting for {missingForecastIds.map(id => labels[id] || id).join(', ')}. Review required before saving.</InlineNotice>}
     {!!history.error && <InlineNotice tone="error">{errorMessage(history.error)} <button className="text-button" onClick={onRefresh}>Refresh workspace</button></InlineNotice>}
-    {impact.reasons.map((reason, i) => <p className="impact-reason" key={i}><CornerDownRight size={15} aria-hidden="true" />{reason}</p>)}
+    {impact.reasons.map((reason, i) => <p className="impact-reason" key={i}><CornerDownRight size={15} aria-hidden="true" />{humanReason(reason, impact)}</p>)}
     {impact.status === 'date_conflict' && <p className="small muted replan-note">Replanning needed. The feature date is a recorded forecast, not a recalculated schedule.</p>}
     <div className="owners"><Owner person={impact.engineering_owner} role={impact.status === 'date_conflict' ? 'Blocking work owner' : 'Required work owner'} /><Owner person={impact.account_owner} role="Account owner" /></div>
     {(!impact.engineering_owner || !impact.account_owner) && <InlineNotice>Ownership needs verification. No assignee will be guessed.</InlineNotice>}
     <EvidencePath key={impact.commitment_id} paths={impact.paths} citations={impact.citations} onSource={onSource} />
-    <div className="citation-row">{impact.citations.map((citation, i) => <SourceButton key={`${citation.source_id}:${i}`} source={citation} onOpen={onSource} label={`Supporting passage ${i + 1}`} />)}</div>
+    <div className="supporting-sources"><span className="small muted">Every link above comes from these documents</span><SourceChips citations={impact.citations} onOpen={onSource} /></div>
+    {expertSubject && <WhoKnows workItemId={expertSubject.id} label={expertSubject.label || labels[expertSubject.id] || 'this work'} version={version} onSource={onSource} />}
     {history.data && <ForecastHistory histories={history.data} labels={labels} onSource={onSource} />}
   </main>;
 }

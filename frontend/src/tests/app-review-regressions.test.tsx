@@ -127,6 +127,6 @@ describe('newly flagged commitment highlights', () => {
   it('does not label a resolved conflict as newly flagged', async () => {
     await mountWithUpdate(true, false);
     expect(screen.queryByText('Newly flagged')).not.toBeInTheDocument();
-    expect(screen.getByText('4 promises tracked · No detected date conflicts')).toBeVisible();
+    expect(screen.getByText('4 promises tracked · All on track')).toBeVisible();
   });
 });

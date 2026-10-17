@@ -38,6 +38,7 @@ Edges marked "provenance" carry `source_id` and `quote` properties; `quote` is a
 | `ACCOUNT_OWNER` | `Person → Customer` | yes |
 | `MEMBER_OF` | `Person → Team` | yes |
 | `RESPONSIBLE_FOR` | `Team → WorkItem` | yes |
+| `DISCUSSED` | `Person → WorkItem` (who knows what: a chat, ticket or meeting line where the person discusses the work) | yes |
 | `HAS_FORECAST` | `WorkItem → Forecast` | no |
 | `ESTABLISHES` | `Decision → Forecast` | no |
 | `REVISES` | `Decision → WorkItem` | no |
@@ -158,7 +159,7 @@ The load itself is staged. The new graph, with its indexes and a new `GraphState
 1. **Replay.** If a `RequestRecord` exists for this dataset, operation and key, return its stored result (or raise `IdempotencyConflict`). This comes first, so a completed request still replays after later revisions. A malformed version string raises `StaleEvidence`.
 2. **Stale check.** `expected_version` must equal the current version, else `StaleEvidence`.
 3. **Validation.** No writes; see the table below.
-4. **ID-collision check.** The new `dec_` and `fc_` IDs must not already exist.
+4. **ID-collision check.** The new `fc_` ID must not already exist (a repeat of the same note).
 5. **One version-gated write** (`confirm_decision.cypher`). If it matches nothing, the code re-checks for a replay (a racing identical request may have won), then reports `StaleEvidence` if the version moved, otherwise `ReviewRequired`.
 
 Steps 3 and 4 get the same re-check. Another confirm can commit between step 2 and validation, and validation then sees that confirm's forecast (its `valid_from` equals this request's `effective_at`). So a validation failure first looks for a replay and re-reads the version: a moved version raises `StaleEvidence` (409), not `ReviewRequired` (422). `save_action` does the same.
@@ -178,7 +179,7 @@ Steps 3 and 4 get the same re-check. Another confirm can commit between step 2 a
 | `active.valid_from < effective_at <= now` | `ReviewRequired` |
 | `supersedes_id`, if given, is the active forecast's establishing Decision | `ReviewRequired` |
 | If a Source with this `id` already exists, its content hash matches `source.body` | `ReviewRequired` |
-| Generated `dec_`/`fc_` IDs are not already used (a repeat of the same note) | `ReviewRequired` |
+| The generated `fc_` ID is not already used (a repeat of the same note) | `ReviewRequired` |
 | Version matches / key not reused with a different request | `StaleEvidence` / `IdempotencyConflict` |
 
 Time rules: `effective_at` must be strictly after the active forecast's `valid_from` and no later than the current time, so the interval stays forward-moving and a preview time slightly earlier than confirmation is fine. Delivery dates (`available_at`) are never compared with the current time; a future or past delivery date is accepted if the other rules pass.
@@ -186,7 +187,7 @@ Time rules: `effective_at` must be strictly after the active forecast's `valid_f
 ### What gets written
 
 - `SUPERSEDES` is derived from the graph: the new Decision points at the Decision that establishes the old active forecast. The caller's `supersedes_id` is only checked against it, never trusted.
-- IDs are deterministic: `dec_` / `fc_` + the first 16 hex chars of SHA-256(dataset_id, source id, work item id, `available_at`). A second note for the same source, work item and date therefore collides and is rejected as a repeat note. The same date from a different source gets different IDs.
+- Decision IDs are human-readable: the next `DEC-<n>` after the highest code in the graph (`DEC-13` after the seeded `DEC-12`). The revision gate makes two writers that pick the same code at the same revision safe, because only one matches. Forecast IDs stay deterministic: `fc_` + the first 16 hex chars of SHA-256(dataset_id, source id, work item id, `available_at`). A second note for the same source, work item and date therefore collides and is rejected as a repeat note. The same date from a different source gets a different ID.
 - The Decision's summary is `"<work item name> delivery set to <YYYY-MM-DD> (IST)"`, for example "Permissions service delivery set to 2026-10-28 (IST)". It is `decided_at` = `effective_at`, status `approved`.
 - The old forecast is closed (`valid_to = effective_at`) and kept; the new forecast starts at `effective_at` and is open.
 - The Source is created if it is new, otherwise reused.

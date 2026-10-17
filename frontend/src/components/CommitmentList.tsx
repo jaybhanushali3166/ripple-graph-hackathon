@@ -1,6 +1,7 @@
 import { ArrowUpRight } from 'lucide-react';
 import type { Impact } from '../api/types';
 import { shortDate } from '../lib/dates';
+import { daysLate, lateLabel } from '../lib/reasons';
 import { StatusBadge } from './StatusBadge';
 export function CommitmentList({
   impacts,
@@ -19,6 +20,7 @@ export function CommitmentList({
     <div className="list-heading"><span>All commitments</span><span>{String(impacts.length).padStart(2, '0')}</span></div>
     {impacts.map(impact => {
       const isChanged = changedIds?.has(impact.commitment_id);
+      const late = daysLate(impact);
       return <button
         className={`commitment-row${isChanged ? ' row-status-changed' : ''}`}
         type="button"
@@ -36,6 +38,7 @@ export function CommitmentList({
         </span>
         <span className="commitment-title">{impact.title}</span>
         <span className="commitment-meta"><StatusBadge status={impact.status} compact /><span className="date-nowrap">{shortDate(impact.due_at)}</span></span>
+        {late !== null && <span className="late-badge late-badge-row">{lateLabel(late)}</span>}
       </button>;
     })}
     <p className="list-footnote">Every flag follows a recorded dependency.<br /><br />Dates shown in IST.</p>

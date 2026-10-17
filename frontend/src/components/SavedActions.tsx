@@ -5,7 +5,7 @@ import type { Impact } from '../api/types';
 import { useResource } from '../hooks/useResource';
 import { dateTime } from '../lib/dates';
 import { InlineNotice } from './InlineNotice';
-import { SourceButton, type OpenSource } from './SourceButton';
+import { SourceChips, type OpenSource } from './SourceButton';
 
 export function SavedActions({
   commitmentId,
@@ -39,13 +39,13 @@ export function SavedActions({
     {result.data?.actions.map(action => {
       const assigneeName = impact
         ? action.assignee_id === impact.engineering_owner?.id
-          ? `${impact.engineering_owner.name} (${action.assignee_id})`
+          ? impact.engineering_owner.name
           : action.assignee_id === impact.account_owner?.id
-            ? `${impact.account_owner.name} (${action.assignee_id})`
+            ? impact.account_owner.name
             : action.assignee_id
         : action.assignee_id;
       return <details className="saved-action" key={action.id}><summary>{action.kind === 'internal_escalation' ? 'Internal escalation' : 'Customer update'}<span className="small muted">{action.evidence_version === version ? 'Reviewed' : 'Needs re-review'}</span></summary>
-        <p className="small muted">{dateTime(action.created_at)} · Assignee {assigneeName}</p><p className="preserve-text">{action.body}</p><div className="citation-row">{action.citations.map((citation, i) => <SourceButton key={i} source={citation} onOpen={onSource} label={`Evidence ${i + 1}`} />)}</div>
+        <p className="small muted">{dateTime(action.created_at)} · Assignee {assigneeName}</p><p className="preserve-text">{action.body}</p><SourceChips citations={action.citations} onOpen={onSource} />
       </details>;
     })}
   </section>;
