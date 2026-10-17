@@ -259,13 +259,22 @@ async def generic_exception_handler(request: Request, exc: Exception) -> JSONRes
 # Mount modular API routes under /api
 app.include_router(api_router, prefix="/api")
 
-# Mount frontend static distribution if built (for all-in-one deployment)
-frontend_dist = os.getenv(
-    "FRONTEND_DIST_DIR",
+# Candidate paths for the frontend dist directory (Docker, Render native, or local)
+candidate_paths = [
+    os.getenv("FRONTEND_DIST_DIR", ""),
     os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")),
-)
+    os.path.abspath("frontend/dist"),
+    "/app/frontend/dist",
+]
 
-if os.path.isdir(frontend_dist):
+frontend_dist = None
+for candidate in candidate_paths:
+    if candidate and os.path.isdir(candidate) and os.path.isfile(os.path.join(candidate, "index.html")):
+        frontend_dist = candidate
+        break
+
+if frontend_dist:
+    logger.info("Serving frontend static assets from %s", frontend_dist)
     assets_dir = os.path.join(frontend_dist, "assets")
     if os.path.isdir(assets_dir):
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
@@ -282,4 +291,20 @@ if os.path.isdir(frontend_dist):
         if os.path.isfile(index_file):
             return FileResponse(index_file)
         raise FastAPIHTTPException(status_code=404, detail="Frontend index.html not found")
+else:
+    logger.warning("Frontend static build not detected in any candidate path: %s", candidate_paths)
+
+    @app.get("/")
+    async def serve_fallback_root():
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "online",
+                "service": "Ripple API",
+                "message": "API is online! Frontend build not detected yet.",
+                "docs": "/docs",
+                "health": "/api/health",
+            },
+        )
+
 
