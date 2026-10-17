@@ -63,7 +63,7 @@ All errors subclass `GraphError` and carry `.message` and `.details`. Never retu
 | `NotFound` | 404 |
 | `GraphUnavailable` | 503 `graph_unavailable` |
 | `InconsistentRead` | suggested: retry the read once, then 503 (not in the contract) |
-| `FixtureError` | seed/reset only; 500 or an operator error |
+| `FixtureError` | seed/reset only; 500 or an operator error. The live graph, its version and its Actions are unchanged after any failed reset |
 
 Check order inside `confirm_decision` and `save_action`: replay → stale version → validation → write. A completed request with the same key and payload replays its stored result even after later revisions. If validation or the write fails because another request committed in between, the loser gets `StaleEvidence` (or the winner's result for an identical request), never `ReviewRequired`.
 
@@ -102,7 +102,7 @@ docker run -d --name ripple-falkordb-dev -p 6379:6379 falkordb/falkordb:v4.22.1
 # seed the demo graph and print the four baseline statuses
 ~/.venvs/ripple-graph/bin/python -m backend.app.graph.smoke
 
-# graph tests (85; restart and timing checks are opt-in)
+# graph tests (95; restart and timing checks are opt-in)
 PYTHONDONTWRITEBYTECODE=1 ~/.venvs/ripple-graph/bin/python -m unittest discover -s tests/graph -t .
 PYTHONDONTWRITEBYTECODE=1 RIPPLE_RESTART_TEST=1 RIPPLE_TIMINGS=1 \
   ~/.venvs/ripple-graph/bin/python -m unittest discover -s tests/graph -t .

@@ -145,7 +145,9 @@ Run from the repo root with the venv that has the `falkordb` client:
 PYTHONDONTWRITEBYTECODE=1 ~/.venvs/ripple-graph/bin/python -m unittest discover -s tests/graph -t .
 ```
 
-Settings: `FALKORDB_HOST`, `FALKORDB_PORT` (default 6379), `FALKORDB_PASSWORD`, `RIPPLE_GRAPH_NAME` (default `ripple_demo`). `GraphRepository.seed_demo(fixtures_dir, scenario=None)` validates the fixtures (exact quotes, known IDs, no dependency cycle) and converts every node and edge (dates, required fields) first. Only then does it delete the graph, load the data and create a new `GraphState`. Invalid or malformed fixtures raise `FixtureError` before anything is deleted, so a failed reset keeps the previous workspace, Actions included. A failure during the database writes themselves is not staged: it can still leave a partial graph, and seeding again repairs it. The optional scenario overlay is a test helper, not the live update flow.
+Settings: `FALKORDB_HOST`, `FALKORDB_PORT` (default 6379), `FALKORDB_PASSWORD`, `RIPPLE_GRAPH_NAME` (default `ripple_demo`). `GraphRepository.seed_demo(fixtures_dir, scenario=None)` validates the fixtures (exact quotes, known IDs, no dependency cycle) and converts every node and edge (dates, required fields). It then checks every row about to be written against a fixed schema: exact property keys, and types FalkorDB can store (strings, integer epoch-ms times, finite numbers, no booleans, objects or nulls, and a known `WorkItem.kind`). Invalid or malformed fixtures raise `FixtureError` before the database is touched.
+
+The load itself is staged. The new graph, with its indexes and a new `GraphState`, is written to a temporary `<graph>__staging_<id>` graph. If any write fails there, including a rejection only the database detects, the staging graph is dropped and the live graph is never touched. Only after the whole load succeeded does one Redis `RENAME` replace the live graph with the staging graph. The rename is atomic, so there is no moment where the live graph is missing. A failed reset therefore keeps the previous workspace intact, Actions and `GraphState` included. `GRAPH.COPY` is deliberately not used: it forks the server, and in local test runs it intermittently failed with "could not fork". Writes that land on the live graph while a reset is loading are discarded with the old graph, as with any reset, so run reset under the API's mutation lock. The optional scenario overlay is a test helper, not the live update flow.
 
 ## Confirming a decision
 
@@ -267,7 +269,7 @@ The graph layer raises these (`backend/app/graph/errors.py`). The HTTP mapping i
 | `NotFound` | unknown work item, commitment, person, source, decision, or an unseeded graph | 404 |
 | `GraphUnavailable` | FalkorDB unreachable or timed out | 503 |
 | `InconsistentRead` | revision kept changing during a multi-query read (3 attempts) | retryable; the caller may retry the read |
-| `FixtureError` | a seed/import was rejected (cycle, bad quote, unknown ID, malformed date or missing field); the existing graph is untouched | not an API error |
+| `FixtureError` | a seed/import was rejected (cycle, bad quote, unknown ID, malformed date, missing field or a value of an unsupported type); the existing graph is untouched | not an API error |
 
 ## Verification results
 
@@ -280,7 +282,7 @@ Observed on October 17, 2026 against local Docker (`falkordb/falkordb:v4.22.1`, 
 - **Edge-removal proof:** deleting `wi_identity_migration → wi_permissions` un-flags Acme only (Birch stays flagged); restoring the edge with the same `source_id` and quote re-flags Acme.
 - **Restart:** forecasts, sources, version, history, the Action and impacts are identical after `docker restart` with a volume at `/var/lib/falkordb/data` and the image's default RDB snapshot settings. A hard kill (`docker kill`) loses writes made since the last snapshot; enabling append-only mode is untested.
 - **Timings** (median of 20 runs after 3 warm-up): `list_impacts` 5.3 ms, `get_evidence` 4.7 ms, `get_history` 1.9 ms, `resolve_entity` 2.4 ms, `confirm_decision` 4.5 ms, `save_action` 3.5 ms.
-- **Test suite:** 85 graph tests pass; the restart and timing checks are opt-in (`RIPPLE_RESTART_TEST=1`, `RIPPLE_TIMINGS=1`).
+- **Test suite:** 95 graph tests pass; the restart and timing checks are opt-in (`RIPPLE_RESTART_TEST=1`, `RIPPLE_TIMINGS=1`).
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 RIPPLE_RESTART_TEST=1 RIPPLE_TIMINGS=1 \
