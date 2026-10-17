@@ -1,6 +1,6 @@
 # Ripple graph model
 
-**DRAFT.** Describes what `backend/app/graph/` and `backend/queries/` do today, written from the code. The only open item is the [Verification results](#verification-results) section.
+Describes what `backend/app/graph/` and `backend/queries/` do, written from the code. Observed checks are in [Verification results](#verification-results).
 
 Ripple stores commitments, the work they depend on, and the decisions that set delivery forecasts in FalkorDB (a Redis-based graph database queried with Cypher). Impact, owner and history answers come from graph queries over those records. The Python code groups rows and applies the status/owner rules below; fixtures under `fixtures/harbor/expected/` are test assertions only, never a runtime lookup.
 
@@ -267,13 +267,27 @@ The graph layer raises these (`backend/app/graph/errors.py`). The HTTP mapping i
 
 ## Verification results
 
-**TODO:** observed test results and query timings, to be added from the end-to-end verification run.
+Observed on October 17, 2026 against local Docker (`falkordb/falkordb:v4.22.1`, Python client `falkordb` 1.8.0). These are test observations, not benchmarks.
+
+- **Baseline:** four open commitments, no date conflicts, completeness complete.
+- **Canonical October 28 confirm** through the repository API: exactly `com_acme_sso` and `com_birch_audit` flagged; Cedar and Delta are unaffected controls. The version goes `<dataset>:0` → `<dataset>:1`.
+- **History:** two accepted forecasts for `wi_permissions`; `DEC-12` → the new Decision, which supersedes `DEC-12` and establishes the new forecast, with source quotes and half-open intervals.
+- **Reviewed Action:** saved and listed; the knowledge version is unchanged by the save.
+- **Edge-removal proof:** deleting `wi_identity_migration → wi_permissions` un-flags Acme only (Birch stays flagged); restoring the edge with the same `source_id` and quote re-flags Acme.
+- **Restart:** forecasts, sources, version, history, the Action and impacts are identical after `docker restart` with a volume at `/var/lib/falkordb/data` and the image's default RDB snapshot settings. A hard kill (`docker kill`) loses writes made since the last snapshot; enabling append-only mode is untested.
+- **Timings** (median of 20 runs after 3 warm-up): `list_impacts` 5.3 ms, `get_evidence` 4.7 ms, `get_history` 1.9 ms, `resolve_entity` 2.4 ms, `confirm_decision` 4.5 ms, `save_action` 3.5 ms.
+- **Test suite:** 85 graph tests pass; the restart and timing checks are opt-in (`RIPPLE_RESTART_TEST=1`, `RIPPLE_TIMINGS=1`).
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 RIPPLE_RESTART_TEST=1 RIPPLE_TIMINGS=1 \
+  ~/.venvs/ripple-graph/bin/python -m unittest discover -s tests/graph -t .
+```
 
 ## Known limitations
 
 - **No automatic downstream replanning.** When `wi_permissions` slips, the forecasts of `wi_identity_migration` and `wi_sso` stay as recorded. Ripple flags the conflict and shows the recorded forecast beside it; it does not compute a new schedule.
 - **Dependencies are static.** `DEPENDS_ON` edges come from the fixtures and are not inferred or updated from new notes.
 - **Deterministic seed mappings.** Baseline entities, edges and forecasts are mapped from the synthetic fixtures by hand, not extracted by a model.
-- Action idempotency relies on mutations being serialised (one API worker). A knowledge confirmation is protected by the revision gate, but `save_action` does not change the revision, so two simultaneous identical `save_action` calls could both pass the gate.
+- `save_action` does not change the revision, so the version gate alone cannot stop two simultaneous identical saves. `action_save.cypher` therefore also refuses to write when a `RequestRecord` or `Action` with the request's IDs already exists, and the loser then replays the stored result (or gets `IdempotencyConflict` for a different payload). This relies on FalkorDB running the writes on one graph one at a time; there is no database uniqueness constraint on these IDs.
 - Dependency expansion is bounded at 4 hops; deeper chains are flagged, not followed.
 - Synthetic data only (one dataset, four customers).

@@ -168,7 +168,7 @@ class GraphWrites:
             "citations_json": _canonical(action["citations"]),
             "request_id": self._request_id(dataset_id, "save_action", idempotency_key),
             "key": idempotency_key, "request_hash": request_hash, "result_json": _canonical(result)})
-        if not written["rows"]:
+        if not written["rows"] or not written["rows"][0][0]:  # RETURN count(*) yields a 0 row when nothing matched
             return self._fail_gate(dataset_id, revision, "save_action", idempotency_key, request_hash)
         return result
 

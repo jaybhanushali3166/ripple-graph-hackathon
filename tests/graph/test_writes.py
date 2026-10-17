@@ -360,6 +360,66 @@ class ActionTests(WriteTestCase):
         self.repo.confirm_decision(make_proposal(), make_source(), version, "k1", NOW)
         self.assertEqual(self.save(version=version, now_ms=NOW + 2 * MINUTE), first)
 
+    def test_overlapping_identical_saves_create_one_action(self):
+        """Both writers pass the replay and version checks before either writes."""
+        version = self.repo.get_version()
+        original = GraphWrites._require_current
+        barrier = threading.Barrier(2)
+
+        def synced(writes, expected):
+            original(writes, expected)
+            barrier.wait(timeout=10)
+        outcomes = {}
+
+        def attempt(name):
+            repo = GraphRepository(GraphClient(graph_name=self.graph_name))
+            try:
+                outcomes[name] = repo.save_action(make_action(), version, "same_key", NOW)
+            except Exception as exc:  # noqa: BLE001 - the outcome is asserted below
+                outcomes[name] = exc
+        with mock.patch.object(GraphWrites, "_require_current", synced):
+            threads = [threading.Thread(target=attempt, args=(name,)) for name in ("a", "b")]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join(30)
+        self.assertEqual(len(outcomes), 2, outcomes)
+        self.assertTrue(all(isinstance(o, dict) for o in outcomes.values()), outcomes)
+        self.assertEqual(outcomes["a"], outcomes["b"])
+        self.assertEqual(self.client.read("MATCH (a:Action) RETURN count(a)"), [[1]])
+        self.assertEqual(self.client.read("MATCH (r:RequestRecord) RETURN count(r)"), [[1]])
+        self.assertEqual(self.client.read("MATCH (:Action)-[e:BASED_ON]->(:Decision) RETURN count(e)"), [[1]])
+        self.assertEqual(self.repo.get_version(), version)
+
+    def test_overlapping_saves_with_different_payloads_conflict(self):
+        version = self.repo.get_version()
+        original = GraphWrites._require_current
+        barrier = threading.Barrier(2)
+
+        def synced(writes, expected):
+            original(writes, expected)
+            barrier.wait(timeout=10)
+        outcomes = {}
+
+        def attempt(name):
+            repo = GraphRepository(GraphClient(graph_name=self.graph_name))
+            try:
+                outcomes[name] = repo.save_action(make_action(body="body " + name), version, "same_key", NOW)
+            except Exception as exc:  # noqa: BLE001 - the outcome is asserted below
+                outcomes[name] = exc
+        with mock.patch.object(GraphWrites, "_require_current", synced):
+            threads = [threading.Thread(target=attempt, args=(name,)) for name in ("a", "b")]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join(30)
+        successes = [o for o in outcomes.values() if isinstance(o, dict)]
+        failures = [o for o in outcomes.values() if isinstance(o, Exception)]
+        self.assertEqual((len(successes), len(failures)), (1, 1), outcomes)
+        self.assertIsInstance(failures[0], IdempotencyConflict)
+        self.assertEqual(self.client.read("MATCH (a:Action) RETURN count(a)"), [[1]])
+        self.assertEqual(self.client.read("MATCH (r:RequestRecord) RETURN count(r)"), [[1]])
+
     def test_same_key_different_payload_conflicts(self):
         version = self.repo.get_version()
         self.save(version=version)
