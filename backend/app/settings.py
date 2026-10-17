@@ -6,12 +6,17 @@ class Settings(BaseSettings):
     falkordb_host: str = "localhost"
     falkordb_port: int = 6379
     falkordb_graph: str = "ripple_demo"
+    ripple_graph_name: str = "ripple_demo"
+    falkordb_username: str | None = None
+    falkordb_password: str | None = None
+    falkordb_tls: bool = False
+    falkordb_tls_ca_certs: str | None = None
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     cors_origins: list[str] = ["http://localhost:5173"]
     dev_mocks: bool = False
     llm_api_key: str | None = None
-    llm_model: str = "gemini-2.0-flash"
+    llm_model: str = "gemma4:31b"
 
     model_config = SettingsConfigDict(
         env_file=".env",

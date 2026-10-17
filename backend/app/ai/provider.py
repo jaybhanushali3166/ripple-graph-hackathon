@@ -101,33 +101,157 @@ class LLMProvider(ABC):
         ...
 
 
-class GeminiProvider(LLMProvider):
-    """Google Gemini API provider using httpx.
+def _normalize_schema_types(val: Any) -> Any:
+    """Recursively normalize uppercase schema type names to lowercase JSON Schema types."""
+    if isinstance(val, dict):
+        new_dict = {}
+        for k, v in val.items():
+            if k == "type" and isinstance(v, str):
+                new_dict[k] = v.lower()
+            else:
+                new_dict[k] = _normalize_schema_types(v)
+        return new_dict
+    elif isinstance(val, list):
+        return [_normalize_schema_types(item) for item in val]
+    return val
 
+
+def _format_tools_for_ollama(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Format tool declarations into standard OpenAI/Ollama function calling schema."""
+    formatted = []
+    for t in tools:
+        if t.get("type") == "function" and "function" in t:
+            fn = dict(t["function"])
+            if "parameters" in fn:
+                fn["parameters"] = _normalize_schema_types(fn["parameters"])
+            formatted.append({"type": "function", "function": fn})
+        elif "name" in t:
+            params = _normalize_schema_types(t.get("parameters", {}))
+            formatted.append({
+                "type": "function",
+                "function": {
+                    "name": t["name"],
+                    "description": t.get("description", ""),
+                    "parameters": params,
+                },
+            })
+        else:
+            formatted.append(t)
+    return formatted
+
+
+def _format_messages_for_ollama(
+    messages: list[dict[str, Any]],
+    system_prompt: str | None = None,
+) -> list[dict[str, Any]]:
+    """Format internal message list into Ollama /api/chat messages."""
+    formatted: list[dict[str, Any]] = []
+    if system_prompt:
+        formatted.append({"role": "system", "content": system_prompt})
+
+    for msg in messages:
+        msg_role = msg.get("role", "user")
+
+        if msg_role == "system":
+            formatted.append({
+                "role": "system",
+                "content": msg.get("content") or msg.get("text", ""),
+            })
+        elif msg_role == "user":
+            formatted.append({
+                "role": "user",
+                "content": msg.get("content") or msg.get("text", ""),
+            })
+        elif msg_role in ("model", "assistant"):
+            tc_list: list[dict[str, Any]] = []
+            if "tool_calls" in msg:
+                for item in msg["tool_calls"]:
+                    if "function" in item:
+                        tc_list.append(item)
+                    else:
+                        tc_list.append({
+                            "type": "function",
+                            "function": {
+                                "name": item.get("name", ""),
+                                "arguments": item.get("args") or item.get("arguments", {}),
+                            },
+                        })
+            elif "function_calls" in msg:
+                for item in msg["function_calls"]:
+                    tc_list.append({
+                        "type": "function",
+                        "function": {
+                            "name": item.get("name", ""),
+                            "arguments": item.get("args") or item.get("arguments", {}),
+                        },
+                    })
+
+            assistant_msg: dict[str, Any] = {
+                "role": "assistant",
+                "content": msg.get("content") or msg.get("text", "") or "",
+            }
+            if tc_list:
+                assistant_msg["tool_calls"] = tc_list
+            formatted.append(assistant_msg)
+        elif msg_role in ("function", "tool"):
+            if "function_responses" in msg:
+                for fr in msg["function_responses"]:
+                    res = fr.get("response", {})
+                    content_str = json.dumps(res) if isinstance(res, (dict, list)) else str(res)
+                    formatted.append({
+                        "role": "tool",
+                        "content": content_str,
+                        "name": fr.get("name", ""),
+                    })
+            elif "function_response" in msg:
+                fr = msg["function_response"]
+                res = fr.get("response", {})
+                content_str = json.dumps(res) if isinstance(res, (dict, list)) else str(res)
+                formatted.append({
+                    "role": "tool",
+                    "content": content_str,
+                    "name": fr.get("name", ""),
+                })
+            else:
+                content = msg.get("content", "")
+                content_str = json.dumps(content) if isinstance(content, (dict, list)) else str(content)
+                formatted.append({
+                    "role": "tool",
+                    "content": content_str,
+                    "name": msg.get("name", ""),
+                })
+
+    return formatted
+
+
+class OllamaProvider(LLMProvider):
+    """Ollama API provider (supporting Ollama Cloud and local Ollama) using httpx.
+
+    Connects to Ollama Cloud (https://ollama.com) or local Ollama instance (http://localhost:11434).
     Initialization is lazy: neither secret validation nor network connection
     happens during __init__.
-    API keys are sent via the 'x-goog-api-key' header to avoid URL log leakage.
+    API keys are sent via the 'Authorization: Bearer <api_key>' header.
     """
 
     def __init__(
         self,
         api_key: str | None = None,
-        model: str = "gemini-2.0-flash",
-        base_url: str = "https://generativelanguage.googleapis.com/v1beta",
+        model: str = "llama3.3",
+        base_url: str = "https://ollama.com",
     ) -> None:
         self.api_key = api_key
         self.model = model
         self.base_url = base_url.rstrip("/")
 
     def _headers(self) -> dict[str, str]:
-        if not self.api_key:
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        elif "ollama.com" in self.base_url.lower():
             raise ProviderAuthenticationError(
-                "Gemini API key is not configured. Set LLM_API_KEY environment variable."
+                "Ollama API key is not configured. Set LLM_API_KEY environment variable."
             )
-        return {
-            "x-goog-api-key": self.api_key,
-            "Content-Type": "application/json",
-        }
+        return headers
 
     async def generate_text(
         self,
@@ -136,17 +260,18 @@ class GeminiProvider(LLMProvider):
         timeout: float = 30.0,
     ) -> str:
         headers = self._headers()
-        endpoint = f"{self.base_url}/models/{self.model}:generateContent"
+        endpoint = f"{self.base_url}/api/chat"
 
-        contents = []
+        messages: list[dict[str, Any]] = []
         if system_prompt:
-            contents.append({"role": "user", "parts": [{"text": f"System context:\n{system_prompt}"}]})
-            contents.append({"role": "model", "parts": [{"text": "Understood. I will follow all instructions and grounding constraints."}]})
-        contents.append({"role": "user", "parts": [{"text": prompt}]})
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
 
-        payload = {
-            "contents": contents,
-            "generationConfig": {
+        payload: dict[str, Any] = {
+            "model": self.model,
+            "messages": messages,
+            "stream": False,
+            "options": {
                 "temperature": 0.1,
             },
         }
@@ -155,26 +280,21 @@ class GeminiProvider(LLMProvider):
             async with httpx.AsyncClient(timeout=timeout) as client:
                 response = await client.post(endpoint, json=payload, headers=headers)
         except httpx.TimeoutException as exc:
-            raise ProviderTimeoutError(f"Gemini API request timed out after {timeout}s") from exc
+            raise ProviderTimeoutError(f"Ollama API request timed out after {timeout}s") from exc
         except httpx.HTTPError as exc:
-            raise AIProviderError(f"Gemini HTTP connection error: {exc}") from exc
+            raise AIProviderError(f"Ollama HTTP connection error: {exc}") from exc
 
         if response.status_code in (401, 403):
-            raise ProviderAuthenticationError(f"Gemini authentication failed (status {response.status_code})")
+            raise ProviderAuthenticationError(f"Ollama authentication failed (status {response.status_code})")
         if response.status_code != 200:
-            raise AIProviderError(f"Gemini API error (status {response.status_code})")
+            raise AIProviderError(f"Ollama API error (status {response.status_code}): {response.text}")
 
         data = response.json()
-        try:
-            candidates = data.get("candidates", [])
-            if not candidates:
-                raise ProviderSchemaError("Gemini returned no candidates in response", details=data)
-            parts = candidates[0].get("content", {}).get("parts", [])
-            if not parts:
-                raise ProviderSchemaError("Gemini returned empty parts list in response", details=data)
-            return parts[0].get("text", "")
-        except (KeyError, IndexError) as exc:
-            raise ProviderSchemaError(f"Unexpected response structure from Gemini: {exc}", details=data) from exc
+        message = data.get("message")
+        if not message or "content" not in message:
+            raise ProviderSchemaError("Ollama returned no message in response", details=data)
+
+        return message.get("content", "")
 
     async def generate_structured(
         self,
@@ -184,24 +304,25 @@ class GeminiProvider(LLMProvider):
         timeout: float = 30.0,
     ) -> T:
         headers = self._headers()
-        endpoint = f"{self.base_url}/models/{self.model}:generateContent"
+        endpoint = f"{self.base_url}/api/chat"
 
-        contents = []
+        messages: list[dict[str, Any]] = []
         if system_prompt:
-            contents.append({"role": "user", "parts": [{"text": f"System context:\n{system_prompt}"}]})
-            contents.append({"role": "model", "parts": [{"text": "Understood. I will strictly output JSON matching the requested schema."}]})
+            messages.append({"role": "system", "content": system_prompt})
 
         json_schema_prompt = (
             f"{prompt}\n\nRespond ONLY with a valid JSON object matching this schema:\n"
             f"{json.dumps(schema.model_json_schema())}"
         )
-        contents.append({"role": "user", "parts": [{"text": json_schema_prompt}]})
+        messages.append({"role": "user", "content": json_schema_prompt})
 
-        payload = {
-            "contents": contents,
-            "generationConfig": {
+        payload: dict[str, Any] = {
+            "model": self.model,
+            "messages": messages,
+            "format": schema.model_json_schema(),
+            "stream": False,
+            "options": {
                 "temperature": 0.0,
-                "responseMimeType": "application/json",
             },
         }
 
@@ -209,30 +330,40 @@ class GeminiProvider(LLMProvider):
             async with httpx.AsyncClient(timeout=timeout) as client:
                 response = await client.post(endpoint, json=payload, headers=headers)
         except httpx.TimeoutException as exc:
-            raise ProviderTimeoutError(f"Gemini API structured request timed out after {timeout}s") from exc
+            raise ProviderTimeoutError(f"Ollama API structured request timed out after {timeout}s") from exc
         except httpx.HTTPError as exc:
-            raise AIProviderError(f"Gemini HTTP connection error: {exc}") from exc
+            raise AIProviderError(f"Ollama HTTP connection error: {exc}") from exc
 
         if response.status_code in (401, 403):
-            raise ProviderAuthenticationError(f"Gemini authentication failed (status {response.status_code})")
+            raise ProviderAuthenticationError(f"Ollama authentication failed (status {response.status_code})")
         if response.status_code != 200:
-            raise AIProviderError(f"Gemini API error (status {response.status_code})")
+            raise AIProviderError(f"Ollama API error (status {response.status_code}): {response.text}")
 
         data = response.json()
+        message = data.get("message")
+        if not message or "content" not in message:
+            raise ProviderSchemaError("Ollama returned no message in response", details=data)
+
+        raw_text = message.get("content", "")
+        if not raw_text:
+            raise ProviderSchemaError("Ollama returned empty content for structured response", details=data)
+
+        raw_text = raw_text.strip()
+        if raw_text.startswith("```"):
+            lines = raw_text.splitlines()
+            if lines and lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].startswith("```"):
+                lines = lines[:-1]
+            raw_text = "\n".join(lines).strip()
+
         try:
-            candidates = data.get("candidates", [])
-            if not candidates:
-                raise ProviderSchemaError("Gemini returned no candidates in response", details=data)
-            parts = candidates[0].get("content", {}).get("parts", [])
-            raw_text = parts[0].get("text", "")
             parsed_json = json.loads(raw_text)
             return schema.model_validate(parsed_json)
         except json.JSONDecodeError as exc:
-            raise ProviderSchemaError(f"Failed to parse JSON from Gemini response: {exc}") from exc
+            raise ProviderSchemaError(f"Failed to parse JSON from Ollama response: {exc}") from exc
         except ValidationError as exc:
-            raise ProviderSchemaError(f"Gemini response did not conform to schema {schema.__name__}: {exc}") from exc
-        except (KeyError, IndexError) as exc:
-            raise ProviderSchemaError(f"Unexpected response structure from Gemini: {exc}", details=data) from exc
+            raise ProviderSchemaError(f"Ollama response did not conform to schema {schema.__name__}: {exc}") from exc
 
     async def generate_tool_step(
         self,
@@ -242,69 +373,61 @@ class GeminiProvider(LLMProvider):
         timeout: float = 30.0,
     ) -> AgentStepResult:
         headers = self._headers()
-        endpoint = f"{self.base_url}/models/{self.model}:generateContent"
+        endpoint = f"{self.base_url}/api/chat"
 
-        contents = []
-        if system_prompt:
-            contents.append({"role": "user", "parts": [{"text": f"System context:\n{system_prompt}"}]})
-            contents.append({"role": "model", "parts": [{"text": "Understood. I will call available tools to look up graph facts before answering."}]})
-
-        for msg in messages:
-            role = "user" if msg["role"] == "user" else "model"
-            parts = []
-            if "text" in msg and msg["text"]:
-                parts.append({"text": msg["text"]})
-            if "function_call" in msg:
-                parts.append({"functionCall": msg["function_call"]})
-            if "function_response" in msg:
-                # Gemini function responses are sent with role 'function' or 'user'
-                role = "function"
-                parts.append({"functionResponse": msg["function_response"]})
-            if parts:
-                contents.append({"role": role, "parts": parts})
+        ollama_messages = _format_messages_for_ollama(messages, system_prompt=system_prompt)
 
         payload: dict[str, Any] = {
-            "contents": contents,
-            "generationConfig": {
+            "model": self.model,
+            "messages": ollama_messages,
+            "stream": False,
+            "options": {
                 "temperature": 0.0,
             },
         }
-
         if tools:
-            payload["tools"] = [{"functionDeclarations": tools}]
+            payload["tools"] = _format_tools_for_ollama(tools)
 
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
                 response = await client.post(endpoint, json=payload, headers=headers)
         except httpx.TimeoutException as exc:
-            raise ProviderTimeoutError(f"Gemini API tool step timed out after {timeout}s") from exc
+            raise ProviderTimeoutError(f"Ollama API tool step timed out after {timeout}s") from exc
         except httpx.HTTPError as exc:
-            raise AIProviderError(f"Gemini HTTP connection error: {exc}") from exc
+            raise AIProviderError(f"Ollama HTTP connection error: {exc}") from exc
 
         if response.status_code in (401, 403):
-            raise ProviderAuthenticationError(f"Gemini authentication failed (status {response.status_code})")
+            raise ProviderAuthenticationError(f"Ollama authentication failed (status {response.status_code})")
         if response.status_code != 200:
-            raise AIProviderError(f"Gemini API error (status {response.status_code})")
+            raise AIProviderError(f"Ollama API error (status {response.status_code}): {response.text}")
 
         data = response.json()
-        candidates = data.get("candidates", [])
-        if not candidates:
-            raise ProviderSchemaError("Gemini returned no candidates in tool step", details=data)
+        message = data.get("message")
+        if not message and not data.get("done"):
+            raise ProviderSchemaError("Ollama returned no message in tool step", details=data)
 
-        parts = candidates[0].get("content", {}).get("parts", [])
+        raw_tool_calls = message.get("tool_calls") or [] if message else []
         tool_calls: list[ToolCall] = []
-        text_out: list[str] = []
 
-        for p in parts:
-            if "functionCall" in p:
-                fc = p["functionCall"]
-                tool_calls.append(ToolCall(name=fc.get("name", ""), arguments=fc.get("args", {})))
-            if "text" in p and p["text"]:
-                text_out.append(p["text"])
+        for tc in raw_tool_calls:
+            fn = tc.get("function", {})
+            name = fn.get("name", "")
+            args = fn.get("arguments", {})
+            if isinstance(args, str):
+                try:
+                    args = json.loads(args)
+                except Exception:
+                    args = {}
+            if name:
+                tool_calls.append(ToolCall(name=name, arguments=args))
+
+        text_out = message.get("content") if message else None
+        if text_out and not text_out.strip():
+            text_out = None
 
         return AgentStepResult(
             tool_calls=tool_calls,
-            text="\n".join(text_out) if text_out else None,
+            text=text_out,
         )
 
 
@@ -415,14 +538,20 @@ class DeterministicTestDouble(LLMProvider):
 
 def get_provider(
     api_key: str | None = None,
-    model: str = "gemini-2.0-flash",
+    model: str = "llama3.3",
+    base_url: str = "https://ollama.com",
     test_double: LLMProvider | None = None,
 ) -> LLMProvider:
     """Factory for LLM providers.
 
     If test_double is explicitly passed, it is used.
-    Otherwise returns GeminiProvider.
+    Otherwise returns OllamaProvider.
     """
     if test_double is not None:
         return test_double
-    return GeminiProvider(api_key=api_key, model=model)
+    return OllamaProvider(api_key=api_key, model=model, base_url=base_url)
+
+
+# Backward compatibility alias
+GeminiProvider = OllamaProvider
+
