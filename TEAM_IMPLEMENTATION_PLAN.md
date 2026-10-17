@@ -8,10 +8,10 @@ Review revision R1: use the accepted [review decisions](docs/implementation/REVI
 
 | Developer | Owns | Individual instructions | Branch |
 | --- | --- | --- | --- |
-| Ashwin | FalkorDB, graph queries, fixtures, forecast history, graph mutations | [Ashwin](docs/implementation/ASHWIN_IMPLEMENTATION.md) | `feat/ashwin-graph` |
-| Pavan | FastAPI, ingestion/update services, action APIs, infrastructure, integration | [Pavan](docs/implementation/PAVAN_IMPLEMENTATION.md) | `feat/pavan-api` |
-| Abhijeet | Decision extraction, tool-calling agent, grounded explanations and drafts | [Abhijeet](docs/implementation/ABHIJEET_IMPLEMENTATION.md) | `feat/abhijeet-agent` |
-| Jay | Frontend, evidence-path interaction, decision review, action review, demo presentation | [Jay](docs/implementation/JAY_IMPLEMENTATION.md) | `feat/jay-frontend` |
+| [Ashwin](docs/implementation/ASHWIN_IMPLEMENTATION.md) | FalkorDB, graph queries, fixtures, forecast history, graph mutations | [Ashwin](docs/implementation/ASHWIN_IMPLEMENTATION.md) | `feat/ashwin-graph` |
+| [Pavan](docs/implementation/PAVAN_IMPLEMENTATION.md) | FastAPI, ingestion/update services, action APIs, infrastructure, integration | [Pavan](docs/implementation/PAVAN_IMPLEMENTATION.md) | `feat/pavan-api` |
+| [Abhijeet](docs/implementation/ABHIJEET_IMPLEMENTATION.md) | Decision extraction, tool-calling agent, grounded explanations and drafts | [Abhijeet](docs/implementation/ABHIJEET_IMPLEMENTATION.md) | `feat/abhijeet-agent` |
+| [Jay](docs/implementation/JAY_IMPLEMENTATION.md) | Frontend, evidence-path interaction, decision review, action review, demo presentation | [Jay](docs/implementation/JAY_IMPLEMENTATION.md) | `feat/jay-frontend` |
 
 Read your own file and the [shared contract](docs/implementation/SHARED_CONTRACT.md) before starting. The shared contract is the agreed starting specification, not a claim that an API already exists. It is maintained by Pavan after the initial team review.
 
@@ -25,7 +25,7 @@ Confirm these fixed decisions: `Decision -ESTABLISHES-> Forecast` with source-ba
 
 Times are elapsed working hours from the team's kickoff, assuming everyone is available together. Plan roughly ten hours to a verified submission candidate and two hours of buffer. Keep time for sleep. Do not multiply the solo estimate by four or use the extra people to add features.
 
-| Window | Ashwin | Pavan | Abhijeet | Jay | Required handoff |
+| Window | [Ashwin](docs/implementation/ASHWIN_IMPLEMENTATION.md) | [Pavan](docs/implementation/PAVAN_IMPLEMENTATION.md) | [Abhijeet](docs/implementation/ABHIJEET_IMPLEMENTATION.md) | [Jay](docs/implementation/JAY_IMPLEMENTATION.md) | Required handoff |
 | --- | --- | --- | --- | --- | --- |
 | 0:00–0:30 | Agree IDs, dates, graph methods | Freeze API schemas, file ownership, versions | Agree AI interfaces and model access | Agree screen states and payload examples | All four accept the shared contract |
 | 0:30–2:00 | Seed graph; implement current impacts, sources, owners | Scaffold server, schemas, settings, Compose and API examples | Build provider wrapper, extraction and agent against test doubles | Scaffold app and all screens against explicit mock responses | Small scaffold changes merged; everyone can run their part |
