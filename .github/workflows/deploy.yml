@@ -63,6 +63,10 @@ jobs:
             echo "::notice ::RENDER_DEPLOY_HOOK_URL secret not configured. Skipping Render deploy."
             exit 0
           fi
+          if [[ "$RENDER_DEPLOY_HOOK_URL" != https://api.render.com/deploy/* ]]; then
+            echo "::warning ::RENDER_DEPLOY_HOOK_URL is currently set to '$RENDER_DEPLOY_HOOK_URL'. A Render Deploy Hook URL looks like 'https://api.render.com/deploy/srv-xxxx?key=yyyy' (found in Render Dashboard -> Settings -> Deploy Hook). Skipping webhook trigger since Render automatically auto-deploys commits pushed to main."
+            exit 0
+          fi
           echo "Triggering zero-downtime deployment on Render via Deploy Hook..."
           response=$(curl -s -w "\n%{http_code}" -X POST "$RENDER_DEPLOY_HOOK_URL")
           http_code=$(echo "$response" | tail -n1)
