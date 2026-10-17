@@ -2,6 +2,8 @@
 
 Prepared October 17, 2026. Recommendation: enter Track 3, Company Brain. The team now has four developers: Ashwin, Pavan, Abhijeet, and Jay. Jay owns the frontend. Use the [team implementation plan](TEAM_IMPLEMENTATION_PLAN.md) and individual implementation files for current ownership, shared contracts, and build order. The sixteen-hour sequence below is the original solo estimate; the team plan replaces it with parallel work and integration checkpoints. Estimates are planning estimates, not measured build times. Implementation has not started.
 
+Review revision R1: the accepted [review decisions](docs/implementation/REVIEW_UPDATES.md) are reflected in the shared contract and each developer's plan. Keep Track 3's focused workflow; add forecast-to-decision provenance and decision-lineage questions, resolve owner/time semantics, and retain basic correctness checks. Expertise ranking, broad company Q&A, automatic schedule propagation, and a side-prize blog are deferred until the core is complete.
+
 **1. The decision**
 
 Build an agent that answers: **“An internal plan changed. Which customer promises are now at risk, why, and who needs to act?”**
@@ -40,7 +42,7 @@ Starting state:
 - A sales handoff records Acme’s promise. A project brief records the dependency. An engineering ticket records the forecast. An ownership file identifies the engineering and account owners.
 - Customer Birch has another promise using the same dependency, due October 26. Customer Cedar’s October 23 commitment uses an independent component. Customer Delta has a later November commitment on the permissions path.
 
-Live trigger: paste an engineering note: “Approved: permissions service delivery moves from October 21 to October 28. Owner: Priya. This replaces decision DEC-12.” The system extracts a proposed update and shows its source text. The user confirms it.
+Live trigger: paste an engineering note: “Approved: permissions service delivery moves from October 21, 2026 to October 28, 2026. Owner: Priya. This replaces decision DEC-12.” The system extracts a proposed update and shows its source text. Its decision-effective time is the server's preview creation time, distinct from the future delivery date. The user confirms it.
 
 The agent should then:
 
@@ -110,6 +112,8 @@ Skip Graphiti and GraphRAG SDK in the critical path. Both are relevant options, 
 | Team | id, name |
 | Source | id, type, title, body, source_timestamp, content_hash |
 | Action | id, kind, draft, status, created_at, evidence_version |
+| GraphState | id, dataset_id, revision |
+| RequestRecord | id, dataset_id, operation, idempotency_key, request_hash, result_json, committed_at |
 
 ```text
 Customer   -HAS_COMMITMENT-> Commitment
@@ -117,6 +121,7 @@ Commitment -REQUIRES->       WorkItem
 WorkItem   -DEPENDS_ON->     WorkItem
 WorkItem   -HAS_FORECAST->   Forecast
 Decision   -REVISES->        WorkItem
+Decision   -ESTABLISHES->    Forecast
 Decision   -SUPERSEDES->     Decision
 Person     -OWNS->           WorkItem
 Person     -ACCOUNT_OWNER->  Customer
@@ -132,11 +137,15 @@ Action     -BASED_ON->       Decision
 
 All proof-bearing edges, including customer/commitment, requirement, dependency, and ownership edges, carry source_id. Use explicit IDs and a small alias dictionary for names. Never merge people solely by display name. An unrecognised or ambiguous entity requires selection before any mutation.
 
+Every Forecast has one establishing Decision and source provenance, including source-backed baseline Decisions. Keep `DEC-12` as the agreed canonical ID; no style-only rename is needed. Complete source records for all four customers, including Cedar/Delta's handoffs and the export plan. GraphState and RequestRecord implement the version/idempotency behavior described in the shared contract.
+
 Store times as UTC epoch milliseconds and display them in IST. Define date-only commitments as end of that day in IST. Forecast validity is a half-open interval: valid_from <= as_of < valid_to; absent valid_to means still active. On a confirmed update, close the old forecast interval and add the new forecast in one mutation. Deterministic decision/source IDs make replay idempotent. Serialise updates for this single-workspace MVP.
 
-The history models accepted forecasts over time. recorded_at is audit metadata; this is not a full bitemporal database. Support normal forward updates first. Backdated or conflicting updates enter review instead of silently replacing accepted facts. A later timestamp alone does not establish authority.
+The history models accepted forecasts over time. recorded_at is audit metadata; this is not a full bitemporal database. In the live MVP, the server fixes effective_at to preview creation time; it must be later than the active forecast's valid_from and no later than confirmation. Explicit historical/future decision-effective times require review and are deferred; historical query tests use separate seeded intervals. A later timestamp alone does not establish authority.
 
 Dependencies remain static for the demo; forecasting history is the temporal feature. Label that limit in the README. Detect dependency cycles on import and cap traversals at four edges, with a visible warning when deeper analysis is needed.
+
+Changing a dependency does not rewrite downstream feature forecasts. Display the recorded feature forecast and the later dependency as a schedule inconsistency requiring replanning. For a conflict, route engineering follow-up to the blocking WorkItem's owner; without a conflict, use the required root WorkItem's owner. Different/missing blocker owners return null and a verification warning, not an arbitrary person. Missing ownership means `needs_verification` unless a confirmed date conflict already takes precedence.
 
 **7. Core reasoning rules**
 
@@ -168,9 +177,11 @@ Tools: resolve_entity, find_impacted_commitments, get_evidence, get_owners, get_
 
 Example request: “What changed for Acme, and who should handle it?” The model resolves Acme, retrieves graph facts, checks the sources and owners, then explains and drafts. It may choose different tools for a historical question. The trace shows structured tool activity and retrieved evidence, not private chain-of-thought.
 
+Ship two tested question types: affected commitments/owners and decision lineage (“Why did the permissions forecast change?”). The second uses the same forecast history, establishing Decision, and sources. It does not expand the product into unrestricted company search or expertise ranking.
+
 The model extracts proposals and writes readable text. Graph queries establish affected IDs and dates. Check output entity IDs, cited source IDs, and numeric facts against the tool results. Reject unsupported fields. If generation fails, show the graph’s factual results with a plain template; explicitly indicate the drafting failure. If FalkorDB fails, show unavailable analysis rather than a cached success.
 
-Build deterministic ingestion first. Seed files include structured IDs and mappings. Then add one honest unstructured path: paste a new decision, extract work_item_id, available_at, supersedes_id, owner_id, evidence_quote, and source_id; validate the exact quote and references; show the proposed delta; confirm; mutate; rerun impact queries. Do not claim unrestricted understanding of arbitrary company corpora.
+Build deterministic ingestion first. Seed files include realistic source bodies, structured IDs, and mappings. Then add one honest unstructured path: paste a new decision, extract work_item_id, available_at, supersedes_id, owner_id, and evidence_quote; validate the exact quote and references; assign source_id and effective_at on the server; show the proposed delta; confirm; mutate; rerun impact queries. Rehearse a different valid delivery date as well. Do not claim unrestricted understanding of arbitrary company corpora or automatic extraction of pre-mapped seed facts.
 
 Source documents are evidence, not instructions to the agent. Any follow-up records the evidence version; if a newer decision arrives, flag the draft for re-review before saving.
 
@@ -249,7 +260,7 @@ An assistant plugin being connected does not give the submitted application its 
 
 Available local skills: consider paint for a tightly scoped visual pass after the core works, cast for one subtle evidence-path reveal after validation, and brag only if an automated promo would save time. A direct screen recording of the functioning product is the first choice. These skills have not been applied to this project. Avoid the full bunshin workflow under this deadline.
 
-Plugin research used the [plugin-management skill](/Users/jaybhanushali/.codex/plugins/cache/openai-curated-remote/plugin-management/0.1.0/skills/plugin-management/SKILL.md). No messages were sent to other people or external workspaces.
+Plugin research used the plugin-management skill. No messages were sent to other people or external workspaces. Assistant-specific local paths are omitted from the public implementation documentation.
 
 **12. Three-minute demo and submission**
 
@@ -263,7 +274,7 @@ Suggested recording length is three minutes; the reviewed rules do not prescribe
 | 1:10–1:50 | Two impacted customers; inspect one complete evidence chain and unaffected control |
 | 1:50–2:20 | Agent tool trace, owners, citations, and follow-up draft |
 | 2:20–2:40 | Save a reviewed action; refresh to show persistence |
-| 2:40–3:00 | Actual Cypher, brief fixture results, and project links |
+| 2:40–3:00 | Forecast-decision lineage, actual Cypher, brief fixture/edge-removal results, and project links |
 
 The [rules](https://www.wemakedevs.org/hackathons/falkordb/rules) require a public repository, setup and graph-model documentation, dependent queries/algorithms, a working demo video, a deployment or complete local setup, and declared tracks. They also require AI-assistance disclosure and meaningful participant understanding. They prohibit restricted/private data ingestion. Use public synthetic fixtures and keep a short record of your design choices and verification.
 

@@ -2,6 +2,8 @@
 
 This is the current execution plan. The [original product plan](IMPLEMENTATION_PLAN.md) supplies the product rationale and graph model. This document replaces its solo schedule. Assignments reflect Jay's request to own the frontend. No application code has been implemented yet.
 
+Review revision R1: use the accepted [review decisions](docs/implementation/REVIEW_UPDATES.md) and revised shared contract. All four developer files now carry the same forecast provenance, server-owned effective time, owner selection, and two-question scope. This updates requirements; it does not claim the kickoff handoffs or application implementation are complete.
+
 **Ownership**
 
 | Developer | Owns | Individual instructions | Branch |
@@ -9,9 +11,15 @@ This is the current execution plan. The [original product plan](IMPLEMENTATION_P
 | Ashwin | FalkorDB, graph queries, fixtures, forecast history, graph mutations | [Ashwin](docs/implementation/ASHWIN_IMPLEMENTATION.md) | `feat/ashwin-graph` |
 | Pavan | FastAPI, ingestion/update services, action APIs, infrastructure, integration | [Pavan](docs/implementation/PAVAN_IMPLEMENTATION.md) | `feat/pavan-api` |
 | Abhijeet | Decision extraction, tool-calling agent, grounded explanations and drafts | [Abhijeet](docs/implementation/ABHIJEET_IMPLEMENTATION.md) | `feat/abhijeet-agent` |
-| Jay — you | Frontend, evidence-path interaction, decision review, action review, demo presentation | [Jay](docs/implementation/JAY_IMPLEMENTATION.md) | `feat/jay-frontend` |
+| Jay | Frontend, evidence-path interaction, decision review, action review, demo presentation | [Jay](docs/implementation/JAY_IMPLEMENTATION.md) | `feat/jay-frontend` |
 
 Read your own file and the [shared contract](docs/implementation/SHARED_CONTRACT.md) before starting. The shared contract is the agreed starting specification, not a claim that an API already exists. It is maintained by Pavan after the initial team review.
+
+**Kickoff handoff — before integration**
+
+Within the first thirty minutes, Ashwin and Pavan agree exact typed repository signatures and graph errors; Pavan publishes Pydantic models and JSON examples for baseline/changed impacts, decision lineage/history, preview/confirm, agent complete/partial, saved Actions, and stale/expired errors. Abhijeet and Jay use those examples. Everyone can start their independent scaffold immediately; do not guess competing schemas while waiting for the handoff.
+
+Confirm these fixed decisions: `Decision -ESTABLISHES-> Forecast` with source-backed baseline decisions; keep `DEC-12`; live effective_at is server preview time; engineering owner comes from blocking items during a conflict; missing/ambiguous ownership is incomplete evidence. Ashwin documents GraphState/RequestRecord and provides complete sources for all four controls. There is no additional approval stage or product redesign.
 
 **Build chronology**
 
@@ -71,11 +79,11 @@ At each handoff, include the exact entry point, command to run, returned shape, 
 
 1. By hour two, every module imports/runs independently and every owner uses the agreed IDs and fields.
 2. By hour four, the browser fetches live impacts and source excerpts from FalkorDB. Stop UI polish if this fails.
-3. By hour six, paste → preview → confirm updates live flags. The agent uses real graph tools and supplies checkable citations. No mock runtime fallback.
-4. By hour eight, save a reviewed follow-up, restart, and retrieve it. Confirm replay, stale-version rejection, historical dates, missing evidence, and unrelated-customer controls work.
+3. By hour six, paste → preview → confirm updates live flags using server preview time. The agent uses real graph tools for impact/owners and decision lineage with checkable citations. No mock runtime fallback.
+4. By hour eight, save a reviewed follow-up, restart, and retrieve it. Confirm replay, stale-version rejection, basic preview expiry, one overlapping-confirmation check, separate historical fixtures, missing evidence, and unrelated-customer controls work. Rehearse a different valid delivery date and verify its actual graph-derived result.
 5. By hour ten, a clean checkout runs from the README and the demo recording shows the working product.
 
-If behind, cut the history slider, fancy graph animation, arbitrary questions, contract-value totals, and hosted deployment in that order. Keep accepted history in storage even if there is no slider. Keep one tool-calling agent flow, source evidence, decision review, and a persisted Action. Do not use four developers to start OAuth, Slack sync, multi-agent coordination, or a second graph framework.
+If behind, cut the history slider, fancy graph animation, general company Q&A, contract-value totals, and CI expansion before removing the core checks. Fall back to complete local setup if hosting blocks submission. Keep accepted history in storage, the two bounded question types (impact/owners and decision lineage), a readable stale/expired message, source evidence, decision review, and a persisted Action. Elaborate stale-state visuals are optional; rejecting stale actions is not. Expertise ranking, additional document-extraction pipelines, automatic schedule recalculation, OAuth, Slack sync, multi-agent coordination, a second graph framework, and a side-prize blog stay deferred until the core is verified. A blog must not consume submission/fix buffer.
 
 **Submission ownership**
 

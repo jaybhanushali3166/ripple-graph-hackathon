@@ -2,6 +2,8 @@
 
 Reviewed October 17, 2026, by Ashwin (with AI assistance). This reviews [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md), [TEAM_IMPLEMENTATION_PLAN.md](TEAM_IMPLEMENTATION_PLAN.md), [SHARED_CONTRACT.md](docs/implementation/SHARED_CONTRACT.md), and the four individual implementation files. It compares them against the [event page](https://www.wemakedevs.org/hackathons/falkordb) and [rules](https://www.wemakedevs.org/hackathons/falkordb/rules). No application code exists yet.
 
+Plan follow-up: see [accepted review changes, revision R1](docs/implementation/REVIEW_UPDATES.md). The observations below describe the earlier plan; the linked disposition identifies the changes now incorporated and the optional suggestions deferred.
+
 ## 1. Verdict
 
 The plan fits Track 3 (Company Brain), and its central bet is right: a live change, a clickable evidence chain from that change to the affected customers, and unaffected control customers. That matches the track's emphasis on current knowledge with sources.
