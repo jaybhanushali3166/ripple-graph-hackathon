@@ -1,0 +1,108 @@
+[
+  {
+    "alias": "permissions service",
+    "kind": "work_item",
+    "candidate_ids": [
+      "wi_permissions"
+    ],
+    "ambiguous": false
+  },
+  {
+    "alias": "permissions",
+    "kind": "work_item",
+    "candidate_ids": [
+      "wi_permissions"
+    ],
+    "ambiguous": false
+  },
+  {
+    "alias": "identity migration",
+    "kind": "work_item",
+    "candidate_ids": [
+      "wi_identity_migration"
+    ],
+    "ambiguous": false
+  },
+  {
+    "alias": "audit log",
+    "kind": "work_item",
+    "candidate_ids": [
+      "wi_audit"
+    ],
+    "ambiguous": false
+  },
+  {
+    "alias": "Priya",
+    "kind": "person",
+    "candidate_ids": [
+      "person_priya"
+    ],
+    "ambiguous": false
+  },
+  {
+    "alias": "Lena",
+    "kind": "person",
+    "candidate_ids": [
+      "person_lena"
+    ],
+    "ambiguous": false
+  },
+  {
+    "alias": "DEC-12",
+    "kind": "decision",
+    "candidate_ids": [
+      "DEC-12"
+    ],
+    "ambiguous": false
+  },
+  {
+    "alias": "Acme",
+    "kind": "customer",
+    "candidate_ids": [
+      "cust_acme"
+    ],
+    "ambiguous": false
+  },
+  {
+    "alias": "Birch",
+    "kind": "customer",
+    "candidate_ids": [
+      "cust_birch"
+    ],
+    "ambiguous": false
+  },
+  {
+    "alias": "Cedar",
+    "kind": "customer",
+    "candidate_ids": [
+      "cust_cedar"
+    ],
+    "ambiguous": false
+  },
+  {
+    "alias": "Delta",
+    "kind": "customer",
+    "candidate_ids": [
+      "cust_delta"
+    ],
+    "ambiguous": false
+  },
+  {
+    "alias": "SSO",
+    "kind": "commitment",
+    "candidate_ids": [
+      "com_acme_sso",
+      "com_delta_sso"
+    ],
+    "ambiguous": true
+  },
+  {
+    "alias": "export",
+    "kind": "work_item",
+    "candidate_ids": [
+      "wi_export",
+      "wi_export_worker"
+    ],
+    "ambiguous": true
+  }
+]

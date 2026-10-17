@@ -1,0 +1,220 @@
+{
+  "description": "Moving wi_permissions to a new accepted date on the live path. Reference model: strict available_at > due_at; same-day is not a conflict.",
+  "preview_created_at": "2026-10-17T14:30:00+05:30",
+  "as_of": "2026-10-17T15:00:00+05:30",
+  "updates": [
+    {
+      "id": "upd_permissions_oct23",
+      "work_item_id": "wi_permissions",
+      "new_available_at": "2026-10-23",
+      "flagged_commitment_ids": [],
+      "impacts": {
+        "com_acme_sso": {
+          "customer_id": "cust_acme",
+          "status": "no_detected_conflict",
+          "blocker_work_item_ids": [],
+          "engineering_owner_id": "person_lena",
+          "account_owner_id": "person_maya",
+          "warnings": []
+        },
+        "com_birch_audit": {
+          "customer_id": "cust_birch",
+          "status": "no_detected_conflict",
+          "blocker_work_item_ids": [],
+          "engineering_owner_id": "person_omar",
+          "account_owner_id": "person_nisha",
+          "warnings": []
+        },
+        "com_cedar_export": {
+          "customer_id": "cust_cedar",
+          "status": "no_detected_conflict",
+          "blocker_work_item_ids": [],
+          "engineering_owner_id": "person_eli",
+          "account_owner_id": "person_leo",
+          "warnings": []
+        },
+        "com_delta_sso": {
+          "customer_id": "cust_delta",
+          "status": "no_detected_conflict",
+          "blocker_work_item_ids": [],
+          "engineering_owner_id": "person_lena",
+          "account_owner_id": "person_noah",
+          "warnings": []
+        }
+      },
+      "unchanged_forecast_ids": [
+        "fc_wi_identity_migration_baseline",
+        "fc_wi_sso_baseline",
+        "fc_wi_audit_baseline",
+        "fc_wi_export_baseline",
+        "fc_wi_export_worker_baseline"
+      ]
+    },
+    {
+      "id": "upd_permissions_oct25",
+      "work_item_id": "wi_permissions",
+      "new_available_at": "2026-10-25",
+      "flagged_commitment_ids": [
+        "com_acme_sso"
+      ],
+      "impacts": {
+        "com_acme_sso": {
+          "customer_id": "cust_acme",
+          "status": "date_conflict",
+          "blocker_work_item_ids": [
+            "wi_permissions"
+          ],
+          "engineering_owner_id": "person_priya",
+          "account_owner_id": "person_maya",
+          "warnings": []
+        },
+        "com_birch_audit": {
+          "customer_id": "cust_birch",
+          "status": "no_detected_conflict",
+          "blocker_work_item_ids": [],
+          "engineering_owner_id": "person_omar",
+          "account_owner_id": "person_nisha",
+          "warnings": []
+        },
+        "com_cedar_export": {
+          "customer_id": "cust_cedar",
+          "status": "no_detected_conflict",
+          "blocker_work_item_ids": [],
+          "engineering_owner_id": "person_eli",
+          "account_owner_id": "person_leo",
+          "warnings": []
+        },
+        "com_delta_sso": {
+          "customer_id": "cust_delta",
+          "status": "no_detected_conflict",
+          "blocker_work_item_ids": [],
+          "engineering_owner_id": "person_lena",
+          "account_owner_id": "person_noah",
+          "warnings": []
+        }
+      },
+      "unchanged_forecast_ids": [
+        "fc_wi_identity_migration_baseline",
+        "fc_wi_sso_baseline",
+        "fc_wi_audit_baseline",
+        "fc_wi_export_baseline",
+        "fc_wi_export_worker_baseline"
+      ]
+    },
+    {
+      "id": "upd_permissions_oct28",
+      "work_item_id": "wi_permissions",
+      "new_available_at": "2026-10-28",
+      "flagged_commitment_ids": [
+        "com_acme_sso",
+        "com_birch_audit"
+      ],
+      "impacts": {
+        "com_acme_sso": {
+          "customer_id": "cust_acme",
+          "status": "date_conflict",
+          "blocker_work_item_ids": [
+            "wi_permissions"
+          ],
+          "engineering_owner_id": "person_priya",
+          "account_owner_id": "person_maya",
+          "warnings": []
+        },
+        "com_birch_audit": {
+          "customer_id": "cust_birch",
+          "status": "date_conflict",
+          "blocker_work_item_ids": [
+            "wi_permissions"
+          ],
+          "engineering_owner_id": "person_priya",
+          "account_owner_id": "person_nisha",
+          "warnings": []
+        },
+        "com_cedar_export": {
+          "customer_id": "cust_cedar",
+          "status": "no_detected_conflict",
+          "blocker_work_item_ids": [],
+          "engineering_owner_id": "person_eli",
+          "account_owner_id": "person_leo",
+          "warnings": []
+        },
+        "com_delta_sso": {
+          "customer_id": "cust_delta",
+          "status": "no_detected_conflict",
+          "blocker_work_item_ids": [],
+          "engineering_owner_id": "person_lena",
+          "account_owner_id": "person_noah",
+          "warnings": []
+        }
+      },
+      "unchanged_forecast_ids": [
+        "fc_wi_identity_migration_baseline",
+        "fc_wi_sso_baseline",
+        "fc_wi_audit_baseline",
+        "fc_wi_export_baseline",
+        "fc_wi_export_worker_baseline"
+      ]
+    },
+    {
+      "id": "upd_permissions_nov10",
+      "work_item_id": "wi_permissions",
+      "new_available_at": "2026-11-10",
+      "flagged_commitment_ids": [
+        "com_acme_sso",
+        "com_birch_audit",
+        "com_delta_sso"
+      ],
+      "impacts": {
+        "com_acme_sso": {
+          "customer_id": "cust_acme",
+          "status": "date_conflict",
+          "blocker_work_item_ids": [
+            "wi_permissions"
+          ],
+          "engineering_owner_id": "person_priya",
+          "account_owner_id": "person_maya",
+          "warnings": []
+        },
+        "com_birch_audit": {
+          "customer_id": "cust_birch",
+          "status": "date_conflict",
+          "blocker_work_item_ids": [
+            "wi_permissions"
+          ],
+          "engineering_owner_id": "person_priya",
+          "account_owner_id": "person_nisha",
+          "warnings": []
+        },
+        "com_cedar_export": {
+          "customer_id": "cust_cedar",
+          "status": "no_detected_conflict",
+          "blocker_work_item_ids": [],
+          "engineering_owner_id": "person_eli",
+          "account_owner_id": "person_leo",
+          "warnings": []
+        },
+        "com_delta_sso": {
+          "customer_id": "cust_delta",
+          "status": "date_conflict",
+          "blocker_work_item_ids": [
+            "wi_permissions"
+          ],
+          "engineering_owner_id": "person_priya",
+          "account_owner_id": "person_noah",
+          "warnings": []
+        }
+      },
+      "unchanged_forecast_ids": [
+        "fc_wi_identity_migration_baseline",
+        "fc_wi_sso_baseline",
+        "fc_wi_audit_baseline",
+        "fc_wi_export_baseline",
+        "fc_wi_export_worker_baseline"
+      ]
+    }
+  ],
+  "notes": [
+    "Cedar never appears in flagged_commitment_ids: it has no path to wi_permissions.",
+    "Recorded downstream forecasts (for example fc_wi_sso_baseline) stay unchanged after an update; there is no automatic replanning. The conflict is the dependency's forecast versus the due date."
+  ]
+}

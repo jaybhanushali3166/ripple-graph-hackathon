@@ -1,0 +1,160 @@
+{
+  "id": "scn_history_past_interval",
+  "description": "A closed September forecast for wi_permissions (October 25) applies only to as_of times inside its half-open interval; other items have no forecast yet then.",
+  "base": "harbor_baseline",
+  "operations": [
+    {
+      "op": "add_decision",
+      "decision": {
+        "id": "dec_scn_early_permissions",
+        "summary": "Early permissions estimate before scope cut.",
+        "decided_at": "2026-09-24T09:50:00+05:30",
+        "status": "approved",
+        "revises_work_item_id": "wi_permissions",
+        "supersedes_id": null,
+        "source_id": "src_platform_chat",
+        "quote": "Early estimate was October 25."
+      }
+    },
+    {
+      "op": "add_forecast",
+      "forecast": {
+        "id": "fc_scn_early_permissions",
+        "work_item_id": "wi_permissions",
+        "available_at": "2026-10-25",
+        "valid_from": "2026-09-24T09:50:00+05:30",
+        "valid_to": "2026-10-01T10:00:00+05:30",
+        "status": "accepted",
+        "established_by_decision_id": "dec_scn_early_permissions",
+        "source_id": "src_platform_chat",
+        "quote": "Early estimate was October 25."
+      }
+    }
+  ],
+  "expected": {
+    "import": "accepted",
+    "queries": [
+      {
+        "as_of": "2026-09-25T12:00:00+05:30",
+        "impacts": {
+          "com_acme_sso": {
+            "customer_id": "cust_acme",
+            "status": "date_conflict",
+            "blocker_work_item_ids": [
+              "wi_permissions"
+            ],
+            "engineering_owner_id": "person_priya",
+            "account_owner_id": "person_maya",
+            "warnings": [
+              "missing_forecast"
+            ]
+          },
+          "com_birch_audit": {
+            "customer_id": "cust_birch",
+            "status": "needs_verification",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_omar",
+            "account_owner_id": "person_nisha",
+            "warnings": [
+              "missing_forecast"
+            ]
+          },
+          "com_cedar_export": {
+            "customer_id": "cust_cedar",
+            "status": "needs_verification",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_eli",
+            "account_owner_id": "person_leo",
+            "warnings": [
+              "missing_forecast"
+            ]
+          },
+          "com_delta_sso": {
+            "customer_id": "cust_delta",
+            "status": "needs_verification",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_lena",
+            "account_owner_id": "person_noah",
+            "warnings": [
+              "missing_forecast"
+            ]
+          }
+        }
+      },
+      {
+        "as_of": "2026-10-01T10:00:00+05:30",
+        "impacts": {
+          "com_acme_sso": {
+            "customer_id": "cust_acme",
+            "status": "no_detected_conflict",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_lena",
+            "account_owner_id": "person_maya",
+            "warnings": []
+          },
+          "com_birch_audit": {
+            "customer_id": "cust_birch",
+            "status": "no_detected_conflict",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_omar",
+            "account_owner_id": "person_nisha",
+            "warnings": []
+          },
+          "com_cedar_export": {
+            "customer_id": "cust_cedar",
+            "status": "no_detected_conflict",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_eli",
+            "account_owner_id": "person_leo",
+            "warnings": []
+          },
+          "com_delta_sso": {
+            "customer_id": "cust_delta",
+            "status": "no_detected_conflict",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_lena",
+            "account_owner_id": "person_noah",
+            "warnings": []
+          }
+        }
+      },
+      {
+        "as_of": "2026-10-17T15:00:00+05:30",
+        "impacts": {
+          "com_acme_sso": {
+            "customer_id": "cust_acme",
+            "status": "no_detected_conflict",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_lena",
+            "account_owner_id": "person_maya",
+            "warnings": []
+          },
+          "com_birch_audit": {
+            "customer_id": "cust_birch",
+            "status": "no_detected_conflict",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_omar",
+            "account_owner_id": "person_nisha",
+            "warnings": []
+          },
+          "com_cedar_export": {
+            "customer_id": "cust_cedar",
+            "status": "no_detected_conflict",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_eli",
+            "account_owner_id": "person_leo",
+            "warnings": []
+          },
+          "com_delta_sso": {
+            "customer_id": "cust_delta",
+            "status": "no_detected_conflict",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_lena",
+            "account_owner_id": "person_noah",
+            "warnings": []
+          }
+        }
+      }
+    ]
+  }
+}

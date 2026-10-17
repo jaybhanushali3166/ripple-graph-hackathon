@@ -1,0 +1,58 @@
+{
+  "description": "wi_permissions history after the canonical October 28 update. Placeholders in angle brackets are server-generated or taken from the preview; they are rules, not literal IDs.",
+  "work_item_id": "wi_permissions",
+  "update_id": "upd_permissions_oct28",
+  "forecasts": [
+    {
+      "role": "previous",
+      "id": "fc_wi_permissions_baseline",
+      "status": "accepted",
+      "available_at": "2026-10-21",
+      "valid_from": "2026-10-01T10:00:00+05:30",
+      "valid_to": "<effective_at>",
+      "decision_id": "DEC-12"
+    },
+    {
+      "role": "current",
+      "id": "<new_forecast_id>",
+      "status": "accepted",
+      "available_at": "2026-10-28",
+      "valid_from": "<effective_at>",
+      "valid_to": null,
+      "decision_id": "<new_decision_id>"
+    }
+  ],
+  "placeholders": {
+    "<effective_at>": "preview_created_at from the server; not model-chosen and not a fixed time of day",
+    "<new_decision_id>": "server-generated ID of the Decision created on confirm",
+    "<new_forecast_id>": "server-generated ID of the new Forecast"
+  },
+  "lineage": {
+    "new_decision": {
+      "supersedes_id": "DEC-12",
+      "revises_work_item_id": "wi_permissions",
+      "status": "approved"
+    },
+    "establishes": "<new_forecast_id>",
+    "previous_decision_establishes": "fc_wi_permissions_baseline"
+  },
+  "point_in_time": [
+    {
+      "as_of": "before <effective_at>",
+      "active_forecast": "previous"
+    },
+    {
+      "as_of": "exactly <effective_at>",
+      "active_forecast": "current"
+    },
+    {
+      "as_of": "after <effective_at>",
+      "active_forecast": "current"
+    }
+  ],
+  "rules": [
+    "Exactly two accepted forecasts for wi_permissions; the old one is kept, not deleted.",
+    "previous.valid_to equals current.valid_from (half-open intervals, no gap, no overlap).",
+    "History is ordered by valid_from ascending."
+  ]
+}

@@ -1,0 +1,14 @@
+[
+  {
+    "id": "team_platform",
+    "name": "Platform"
+  },
+  {
+    "id": "team_data",
+    "name": "Data"
+  },
+  {
+    "id": "team_accounts",
+    "name": "Accounts"
+  }
+]

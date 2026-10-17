@@ -1,0 +1,93 @@
+[
+  {
+    "id": "src_acme_handoff",
+    "type": "handoff",
+    "title": "Sales handoff: Acme Corp",
+    "source_timestamp": "2026-09-22T17:30:00+05:30",
+    "file": "src_acme_handoff.md"
+  },
+  {
+    "id": "src_birch_handoff",
+    "type": "handoff",
+    "title": "Sales handoff: Birch Logistics",
+    "source_timestamp": "2026-09-24T16:45:00+05:30",
+    "file": "src_birch_handoff.md"
+  },
+  {
+    "id": "src_cedar_handoff",
+    "type": "handoff",
+    "title": "Sales handoff: Cedar Foods",
+    "source_timestamp": "2026-09-25T15:10:00+05:30",
+    "file": "src_cedar_handoff.md"
+  },
+  {
+    "id": "src_delta_handoff",
+    "type": "handoff",
+    "title": "Sales handoff: Delta Systems",
+    "source_timestamp": "2026-09-26T11:20:00+05:30",
+    "file": "src_delta_handoff.md"
+  },
+  {
+    "id": "src_sso_plan",
+    "type": "doc",
+    "title": "Project plan: Enterprise SSO",
+    "source_timestamp": "2026-09-28T14:00:00+05:30",
+    "file": "src_sso_plan.md"
+  },
+  {
+    "id": "src_identity_plan",
+    "type": "doc",
+    "title": "Project plan: Identity migration",
+    "source_timestamp": "2026-09-29T10:30:00+05:30",
+    "file": "src_identity_plan.md"
+  },
+  {
+    "id": "src_audit_plan",
+    "type": "doc",
+    "title": "Project plan: Audit log",
+    "source_timestamp": "2026-09-29T12:15:00+05:30",
+    "file": "src_audit_plan.md"
+  },
+  {
+    "id": "src_export_plan",
+    "type": "doc",
+    "title": "Project plan: Data export",
+    "source_timestamp": "2026-09-29T15:40:00+05:30",
+    "file": "src_export_plan.md"
+  },
+  {
+    "id": "src_permissions_ticket",
+    "type": "ticket",
+    "title": "PLAT-412: Centralised permissions service",
+    "source_timestamp": "2026-09-30T16:40:00+05:30",
+    "file": "src_permissions_ticket.md"
+  },
+  {
+    "id": "src_owners",
+    "type": "doc",
+    "title": "Harbor ownership register",
+    "source_timestamp": "2026-09-27T09:00:00+05:30",
+    "file": "src_owners.md"
+  },
+  {
+    "id": "src_dec12",
+    "type": "meeting_notes",
+    "title": "Engineering sync: decision DEC-12",
+    "source_timestamp": "2026-10-01T09:30:00+05:30",
+    "file": "src_dec12.md"
+  },
+  {
+    "id": "src_platform_chat",
+    "type": "chat",
+    "title": "#eng-platform thread: permissions estimate",
+    "source_timestamp": "2026-09-24T09:47:00+05:30",
+    "file": "src_platform_chat.md"
+  },
+  {
+    "id": "src_data_chat",
+    "type": "chat",
+    "title": "#eng-data thread: audit-log status",
+    "source_timestamp": "2026-10-09T10:17:00+05:30",
+    "file": "src_data_chat.md"
+  }
+]

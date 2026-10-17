@@ -1,0 +1,85 @@
+{
+  "id": "scn_blockers_different_owners",
+  "description": "Acme has two blockers with different owners (Lena, Priya): engineering owner is null with a warning.",
+  "base": "harbor_baseline",
+  "added_sources": [
+    {
+      "id": "src_scn_update_notes",
+      "type": "chat",
+      "title": "Scenario: approved update notes",
+      "source_timestamp": "2026-10-17T14:25:00+05:30",
+      "body": "Approved: permissions service delivery moves from October 21, 2026 to October 28, 2026. Owner: Priya. This replaces decision DEC-12.\nApproved: identity migration delivery moves from October 22, 2026 to October 25, 2026. Owner: Lena.\n"
+    }
+  ],
+  "operations": [
+    {
+      "op": "apply_update",
+      "work_item_id": "wi_permissions",
+      "available_at": "2026-10-28",
+      "effective_at": "2026-10-17T14:30:00+05:30",
+      "decision_id": "dec_scn_permissions_oct28",
+      "forecast_id": "fc_scn_permissions_oct28",
+      "source_id": "src_scn_update_notes",
+      "quote": "Approved: permissions service delivery moves from October 21, 2026 to October 28, 2026. Owner: Priya. This replaces decision DEC-12."
+    },
+    {
+      "op": "apply_update",
+      "work_item_id": "wi_identity_migration",
+      "available_at": "2026-10-25",
+      "effective_at": "2026-10-17T14:30:00+05:30",
+      "decision_id": "dec_scn_identity_oct25",
+      "forecast_id": "fc_scn_identity_oct25",
+      "source_id": "src_scn_update_notes",
+      "quote": "Approved: identity migration delivery moves from October 22, 2026 to October 25, 2026. Owner: Lena."
+    }
+  ],
+  "expected": {
+    "import": "accepted",
+    "queries": [
+      {
+        "as_of": "2026-10-17T15:00:00+05:30",
+        "impacts": {
+          "com_acme_sso": {
+            "customer_id": "cust_acme",
+            "status": "date_conflict",
+            "blocker_work_item_ids": [
+              "wi_identity_migration",
+              "wi_permissions"
+            ],
+            "engineering_owner_id": null,
+            "account_owner_id": "person_maya",
+            "warnings": [
+              "ambiguous_engineering_owner"
+            ]
+          },
+          "com_birch_audit": {
+            "customer_id": "cust_birch",
+            "status": "date_conflict",
+            "blocker_work_item_ids": [
+              "wi_permissions"
+            ],
+            "engineering_owner_id": "person_priya",
+            "account_owner_id": "person_nisha",
+            "warnings": []
+          },
+          "com_cedar_export": {
+            "customer_id": "cust_cedar",
+            "status": "no_detected_conflict",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_eli",
+            "account_owner_id": "person_leo",
+            "warnings": []
+          },
+          "com_delta_sso": {
+            "customer_id": "cust_delta",
+            "status": "no_detected_conflict",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_lena",
+            "account_owner_id": "person_noah",
+            "warnings": []
+          }
+        }
+      }
+    ]
+  }
+}
