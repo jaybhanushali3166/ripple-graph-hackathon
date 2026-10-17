@@ -11,7 +11,7 @@ From Ashwin (graph owner) to Pavan (API/infrastructure) and Abhijeet (agent tool
 | Port | 6379 inside the container |
 | Persistent volume | mount at `/var/lib/falkordb/data` (the image's data directory) |
 | Shutdown | stop gracefully (`docker compose stop` / `restart`). With the default RDB settings, data survived `docker restart`; a hard `docker kill` lost writes made since the last snapshot. Add `--appendonly yes` (via `REDIS_ARGS` or `FALKORDB_ARGS`) if crash safety matters; this is untested |
-| Environment | `FALKORDB_HOST` (default `localhost`), `FALKORDB_PORT` (`6379`), `FALKORDB_PASSWORD` (optional, untested), `RIPPLE_GRAPH_NAME` (default `ripple_demo`) |
+| Environment | `FALKORDB_HOST` (default `localhost`), `FALKORDB_PORT` (`6379`), `FALKORDB_USERNAME` and `FALKORDB_PASSWORD` (optional; ACL user), `FALKORDB_TLS` (`true`/`false`, default off; any other value is an error), `FALKORDB_TLS_CA_CERTS` (optional CA bundle path; without it the system CA store is used), `RIPPLE_GRAPH_NAME` (default `ripple_demo`). With TLS on, the certificate and its hostname are always verified. These are read from the process environment, not from a `.env` file. A rejected username/password raises `GraphUnavailable` ("FalkorDB rejected the username/password"). A user missing a needed command, such as `RENAME` for reseeding, raises `GraphError` ("lacks permission"). |
 
 `GraphClient(host=None, port=None, password=None, graph_name=None, timeout_seconds=5.0)` reads those variables when arguments are omitted, so the settings module can pass values explicitly instead.
 
@@ -102,7 +102,7 @@ docker run -d --name ripple-falkordb-dev -p 6379:6379 falkordb/falkordb:v4.22.1
 # seed the demo graph and print the four baseline statuses
 ~/.venvs/ripple-graph/bin/python -m backend.app.graph.smoke
 
-# graph tests (95; restart and timing checks are opt-in)
+# graph tests (110; restart, timing and TLS/ACL checks are opt-in)
 PYTHONDONTWRITEBYTECODE=1 ~/.venvs/ripple-graph/bin/python -m unittest discover -s tests/graph -t .
 PYTHONDONTWRITEBYTECODE=1 RIPPLE_RESTART_TEST=1 RIPPLE_TIMINGS=1 \
   ~/.venvs/ripple-graph/bin/python -m unittest discover -s tests/graph -t .
