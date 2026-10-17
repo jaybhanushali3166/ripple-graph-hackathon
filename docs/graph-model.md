@@ -145,7 +145,7 @@ Run from the repo root with the venv that has the `falkordb` client:
 PYTHONDONTWRITEBYTECODE=1 ~/.venvs/ripple-graph/bin/python -m unittest discover -s tests/graph -t .
 ```
 
-Settings: `FALKORDB_HOST`, `FALKORDB_PORT` (default 6379), `FALKORDB_PASSWORD`, `RIPPLE_GRAPH_NAME` (default `ripple_demo`). `GraphRepository.seed_demo(fixtures_dir, scenario=None)` deletes the graph, validates the fixtures (exact quotes, known IDs, no dependency cycle), loads them and creates a new `GraphState`. Invalid fixtures are rejected before anything is written. The optional scenario overlay is a test helper, not the live update flow.
+Settings: `FALKORDB_HOST`, `FALKORDB_PORT` (default 6379), `FALKORDB_PASSWORD`, `RIPPLE_GRAPH_NAME` (default `ripple_demo`). `GraphRepository.seed_demo(fixtures_dir, scenario=None)` validates the fixtures (exact quotes, known IDs, no dependency cycle) and converts every node and edge (dates, required fields) first. Only then does it delete the graph, load the data and create a new `GraphState`. Invalid or malformed fixtures raise `FixtureError` before anything is deleted, so a failed reset keeps the previous workspace, Actions included. A failure during the database writes themselves is not staged: it can still leave a partial graph, and seeding again repairs it. The optional scenario overlay is a test helper, not the live update flow.
 
 ## Confirming a decision
 
@@ -158,6 +158,10 @@ Settings: `FALKORDB_HOST`, `FALKORDB_PORT` (default 6379), `FALKORDB_PASSWORD`, 
 3. **Validation.** No writes; see the table below.
 4. **ID-collision check.** The new `dec_` and `fc_` IDs must not already exist.
 5. **One version-gated write** (`confirm_decision.cypher`). If it matches nothing, the code re-checks for a replay (a racing identical request may have won), then reports `StaleEvidence` if the version moved, otherwise `ReviewRequired`.
+
+Steps 3 and 4 get the same re-check. Another confirm can commit between step 2 and validation, and validation then sees that confirm's forecast (its `valid_from` equals this request's `effective_at`). So a validation failure first looks for a replay and re-reads the version: a moved version raises `StaleEvidence` (409), not `ReviewRequired` (422). `save_action` does the same.
+
+`replay_confirm(...)` runs step 1 on its own and writes nothing. The API calls it for an expired preview, so a completed confirm still replays instead of returning 410.
 
 ### Validation rules
 
@@ -263,7 +267,7 @@ The graph layer raises these (`backend/app/graph/errors.py`). The HTTP mapping i
 | `NotFound` | unknown work item, commitment, person, source, decision, or an unseeded graph | 404 |
 | `GraphUnavailable` | FalkorDB unreachable or timed out | 503 |
 | `InconsistentRead` | revision kept changing during a multi-query read (3 attempts) | retryable; the caller may retry the read |
-| `FixtureError` | a seed/import was rejected (cycle, bad quote, unknown ID) | not an API error |
+| `FixtureError` | a seed/import was rejected (cycle, bad quote, unknown ID, malformed date or missing field); the existing graph is untouched | not an API error |
 
 ## Verification results
 

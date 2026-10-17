@@ -39,6 +39,7 @@ repo = GraphRepository(GraphClient())
 | `get_history(work_item_id)` | `{evidence_version, forecasts:[{id, available_at, valid_from, valid_to, decision_id, supersedes_id, decision_summary, citations}]}` |
 | `resolve_entity(query, kind=None)` | `[{id, kind, name, matched_by}]`: case-insensitive exact match on id, name or alias. Returns **every** candidate and never picks one. Kinds: `customer`, `commitment`, `work_item`, `person`, `team`, `decision` |
 | `confirm_decision(proposal, source, expected_version, idempotency_key, now_ms=None)` | `{decision_id, evidence_version, changed_work_item_ids}` |
+| `replay_confirm(proposal, source, expected_version, idempotency_key)` | The stored `confirm_decision` result for an identical completed request, else `None`; raises `IdempotencyConflict` for the same key with different data. Writes nothing |
 | `save_action(action, expected_version, idempotency_key, now_ms=None)` | `{action_id, status: 'reviewed', evidence_version, created_at}` |
 | `list_actions(commitment_id)` | `{evidence_version, actions:[{id, commitment_id, kind, assignee_id, body, citations, based_on_decision_ids, status, evidence_version, created_at}]}`. Each Action keeps the version it was saved with; mark it for re-review when that differs from the top-level version |
 
@@ -64,7 +65,13 @@ All errors subclass `GraphError` and carry `.message` and `.details`. Never retu
 | `InconsistentRead` | suggested: retry the read once, then 503 (not in the contract) |
 | `FixtureError` | seed/reset only; 500 or an operator error |
 
-Check order inside `confirm_decision` and `save_action`: replay → stale version → validation → write. A completed request with the same key and payload replays its stored result even after later revisions. Your confirm route can call the repository directly after checking preview expiry (410 stays in your layer).
+Check order inside `confirm_decision` and `save_action`: replay → stale version → validation → write. A completed request with the same key and payload replays its stored result even after later revisions. If validation or the write fails because another request committed in between, the loser gets `StaleEvidence` (or the winner's result for an identical request), never `ReviewRequired`.
+
+**Replay must come before your preview-expiry check** (shared contract: "Check completed replay before rejecting an expired preview or old version"). Otherwise a confirmation that succeeded but whose response was lost returns 410 on retry instead of its original result. In the confirm route:
+
+1. Look up the stored preview by `preview_id`. Keep expired previews readable until restart (don't evict them at expiry); 404/410 only if the ID is unknown.
+2. If it has expired, call `replay_confirm(proposal, source, expected_version, idempotency_key)`. Return its result if there is one, otherwise 410 `preview_expired`.
+3. If it has not expired, call `confirm_decision(...)`, which replays first and then checks for stale versions itself.
 
 ## 4. Behaviour you should know
 
