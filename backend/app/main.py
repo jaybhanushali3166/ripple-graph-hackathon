@@ -2,13 +2,15 @@
 
 import asyncio
 import logging
+import os
 from typing import Any, Dict
 
 from fastapi import FastAPI, HTTPException as FastAPIHTTPException, Request, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from backend.app.ai.agent import StaleEvidenceError as AIStaleEvidenceError
@@ -45,10 +47,13 @@ app = FastAPI(
 # Store mutation lock on app state for dependency injection/access
 app.state.mutation_lock = mutation_lock
 
-# Configure CORS for local Vite dev server
+# Configure CORS dynamically from environment (supports local Vite, Vercel, and custom domains)
+cors_origins_env = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8000")
+cors_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=cors_origins if "*" not in cors_origins else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -253,3 +258,28 @@ async def generic_exception_handler(request: Request, exc: Exception) -> JSONRes
 
 # Mount modular API routes under /api
 app.include_router(api_router, prefix="/api")
+
+# Mount frontend static distribution if built (for all-in-one deployment)
+frontend_dist = os.getenv(
+    "FRONTEND_DIST_DIR",
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")),
+)
+
+if os.path.isdir(frontend_dist):
+    assets_dir = os.path.join(frontend_dist, "assets")
+    if os.path.isdir(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_frontend_spa(full_path: str):
+        # Do not intercept API, health check, or documentation routes
+        if full_path.startswith("api") or full_path in ("docs", "redoc", "openapi.json"):
+            raise FastAPIHTTPException(status_code=404, detail="Not Found")
+        file_path = os.path.join(frontend_dist, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        index_file = os.path.join(frontend_dist, "index.html")
+        if os.path.isfile(index_file):
+            return FileResponse(index_file)
+        raise FastAPIHTTPException(status_code=404, detail="Frontend index.html not found")
+
