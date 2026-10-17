@@ -113,3 +113,4 @@ If you ever wish to deploy the frontend to Vercel separately in addition to Rend
    - `VERCEL_ORG_ID`
    - `VERCEL_PROJECT_ID`
 2. The GitHub Action in [`.github/workflows/deploy.yml`](file:///Users/jaybhanushali/Desktop/Projects/Personal/AI/graph-hackathon/.github/workflows/deploy.yml) will automatically run the `deploy-vercel` job as well.
+
