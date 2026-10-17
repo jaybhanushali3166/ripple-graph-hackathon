@@ -18,12 +18,12 @@ def get_graph_repository() -> Optional[GraphRepository]:
     global _live_repo
     settings = get_settings()
 
-    if _live_repo is not None:
-        return _live_repo
-
     if settings.dev_mocks:
         logger.debug("Running in DEV_MOCKS mode without injected repository.")
         return None
+
+    if _live_repo is not None:
+        return _live_repo
 
     # Live mode: construct real GraphClient and GraphRepository
     client = GraphClient(
