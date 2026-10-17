@@ -232,15 +232,31 @@ def _edge_statements(data):
             for a in data["aliases"] if a["kind"] == kind for cid in a["candidate_ids"]]
 
 
+def prepare(data):
+    """Validate data and convert it to node rows and edge statements, touching nothing.
+
+    Every malformed field (bad date, missing key, wrong type) surfaces here as a
+    FixtureError, so a rejected import can never reach the destructive part of write_graph.
+    """
+    try:
+        validate(data)
+        return _node_rows(data), list(_edge_statements(data))
+    except FixtureError:
+        raise
+    except (KeyError, TypeError, ValueError, AttributeError) as exc:
+        raise FixtureError("malformed fixture data (%s: %s); import rejected" % (type(exc).__name__, exc)) from exc
+
+
 def write_graph(client, data):
     """Wipe the client's graph and load data. Returns the new dataset_id."""
+    node_rows, edge_statements = prepare(data)  # before delete_graph: a bad payload keeps the old graph
     client.delete_graph()
     for label in NODE_LABELS + ["GraphState", "Action", "RequestRecord"]:
         client.write("CREATE INDEX FOR (n:%s) ON (n.id)" % label)
-    for label, rows in _node_rows(data).items():
+    for label, rows in node_rows.items():
         if rows:
             client.write("UNWIND $rows AS r CREATE (n:%s) SET n = r" % label, {"rows": rows})
-    for from_label, to_label, edge_type, rows in _edge_statements(data):
+    for from_label, to_label, edge_type, rows in edge_statements:
         if not rows:
             continue
         props = " {source_id: r.source_id, quote: r.quote}" if "quote" in rows[0] else ""
@@ -260,6 +276,10 @@ def seed_demo(client, fixtures_dir, scenario=None):
     """Validate, then replace the graph with the fixtures (and optional scenario overlay)."""
     data = load_fixtures(fixtures_dir)
     if scenario:
-        data = apply_scenario(data, scenario)
-    validate(data)
+        try:
+            data = apply_scenario(data, scenario)
+        except FixtureError:
+            raise
+        except (KeyError, TypeError, ValueError, AttributeError) as exc:
+            raise FixtureError("malformed scenario (%s: %s); import rejected" % (type(exc).__name__, exc)) from exc
     return write_graph(client, data)

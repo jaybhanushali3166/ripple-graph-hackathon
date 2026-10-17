@@ -117,6 +117,41 @@ class BaselineTests(RepositoryTestCase):
             for query in expected["queries"]:
                 self.assert_impacts(query["as_of"], query["impacts"])
 
+    def test_malformed_import_keeps_the_existing_graph(self):
+        """Fields that pass ID/quote validation but fail conversion must not delete anything."""
+        self.seed()
+        version = self.repo.get_version()
+        saved = self.repo.save_action(
+            {"commitment_id": "com_acme_sso", "kind": "internal_escalation", "assignee_id": "person_priya",
+             "body": "Please replan.", "citations": [{"source_id": "src_dec12", "quote": "DEC-12: Approved."}],
+             "based_on_decision_ids": ["DEC-12"]}, version, "keep_me")
+        read = self.client.read
+        before = (read("MATCH (n) RETURN count(n)")[0][0], read("MATCH ()-[e]->() RETURN count(e)")[0][0],
+                  self.repo.get_version(), self.repo.list_actions("com_acme_sso"),
+                  self.repo.list_impacts(instant_ms("2026-10-17T15:00:00+05:30")))
+        forecast = {"id": "fc_bad", "work_item_id": "wi_permissions", "available_at": "2026-10-28",
+                    "valid_from": "2026-10-17T14:30:00+05:30", "valid_to": None, "status": "accepted",
+                    "established_by_decision_id": "DEC-12", "source_id": "src_dec12", "quote": "DEC-12: Approved."}
+        cases = {
+            "unparseable date": [{"op": "add_forecast", "forecast": dict(forecast, available_at="not-a-date")}],
+            "instant without offset": [{"op": "add_forecast", "forecast": dict(forecast, valid_from="2026-10-17T14:30:00")}],
+            "missing field": [{"op": "add_work_item", "work_item": {"id": "wi_no_kind", "name": "No kind"}}],
+            "wrong type": [{"op": "add_forecast", "forecast": dict(forecast, available_at=20261028)}],
+            "unknown relationship type": [{"op": "add_relationship", "relationship": {
+                "type": "BLOCKS", "from_id": "wi_sso", "to_id": "wi_permissions",
+                "source_id": "src_dec12", "quote": "DEC-12: Approved."}}],
+            "malformed operation": [{"op": "remove_owner"}],
+        }
+        for name, operations in cases.items():
+            with self.subTest(name):
+                with self.assertRaises(FixtureError):
+                    self.seed({"operations": operations})
+                after = (read("MATCH (n) RETURN count(n)")[0][0], read("MATCH ()-[e]->() RETURN count(e)")[0][0],
+                         self.repo.get_version(), self.repo.list_actions("com_acme_sso"),
+                         self.repo.list_impacts(instant_ms("2026-10-17T15:00:00+05:30")))
+                self.assertEqual(after, before)
+        self.assertEqual([a["id"] for a in before[3]["actions"]], [saved["action_id"]])
+
     def test_evidence_is_exact_and_provenanced(self):
         self.seed({"operations": [{"op": "apply_update", "work_item_id": "wi_permissions",
                                     "available_at": "2026-10-28", "effective_at": "2026-10-17T14:30:00+05:30",
