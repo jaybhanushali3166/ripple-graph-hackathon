@@ -231,7 +231,7 @@ flowchart TD
 
 #### Phase 2: Live Graph Connection, Ingestion & Reset (2:00 – 4:00)
 
-- [ ] **TASK-PVN-201: Implement Impact & Source Query Services with R1 Rules**
+- [x] **TASK-PVN-201: Implement Impact & Source Query Services with R1 Rules**
   - **Objective**: Connect read endpoints to Ashwin's synchronous `GraphRepository` enforcing R1 owner resolution.
   - **Target Files**:
     - `backend/app/services/impact_service.py`
@@ -243,7 +243,7 @@ flowchart TD
     - Map repository results to `ImpactResponse`, `SourceResponse`, and `WorkItemHistoryResponse`.
     - Ensure zero raw FalkorDB objects leak to the route layer.
 
-- [ ] **TASK-PVN-202: Implement Demo Reset & Ingestion Services with GraphState**
+- [x] **TASK-PVN-202: Implement Demo Reset & Ingestion Services with GraphState**
   - **Objective**: Controlled demo reset and synthetic dataset reseed with dataset identity management.
   - **Target Files**: `backend/app/services/demo_service.py`, `backend/app/api/demo.py`.
   - **Details**:
@@ -251,14 +251,14 @@ flowchart TD
     - Old dataset requests return 409 `stale_evidence` rather than replaying into new demo data.
     - `POST /api/ingest`: Deterministic import of synthetic fixtures. Reject arbitrary user-supplied graph names.
 
-- [ ] **TASK-PVN-203: Map Domain Graph Exceptions to HTTP Contract**
+- [x] **TASK-PVN-203: Map Domain Graph Exceptions to HTTP Contract**
   - **Objective**: Honest error reporting without exposing internal stack traces.
   - **Details**:
     - Map `GraphUnavailableError` -> 503 `graph_unavailable`.
     - Map `EntityNotFoundError` -> 404 `not_found`.
     - Map `StaleVersionError` -> 409 `stale_evidence`.
 
-- [ ] **TASK-PVN-204: Hour 4 Handoff & Hosting Probe**
+- [x] **TASK-PVN-204: Hour 4 Handoff & Hosting Probe**
   - **Objective**: Verify Jay's browser loads live impacts from FalkorDB.
   - **Deliverables**:
     - Browser displays real graph-backed paths and source excerpts.
