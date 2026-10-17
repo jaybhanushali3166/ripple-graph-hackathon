@@ -41,6 +41,6 @@ COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
 
 EXPOSE 8000
 
-# Start Uvicorn serving both API and Frontend
-CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Start Uvicorn serving both API and Frontend (binds to Render's dynamic $PORT or 8000)
+CMD ["sh", "-c", "uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
 
