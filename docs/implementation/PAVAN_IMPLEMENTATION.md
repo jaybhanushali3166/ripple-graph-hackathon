@@ -268,7 +268,7 @@ flowchart TD
 
 #### Phase 3: Workflow Orchestration — Previews, Confirms, Agent & Actions (4:00 – 6:00)
 
-- [ ] **TASK-PVN-301: Implement In-Memory Proposal Preview Store**
+- [x] **TASK-PVN-301: Implement In-Memory Proposal Preview Store**
   - **Objective**: Safe, transient storage for unconfirmed decision proposals.
   - **Target Files**: `backend/app/services/preview_store.py`.
   - **Details**:
@@ -276,7 +276,7 @@ flowchart TD
     - Enforce 15-minute TTL (`expires_at`); auto-evict expired proposals.
     - Thread-safe store, lookup, and deletion methods.
 
-- [ ] **TASK-PVN-302: Implement Decision Preview Service with Server-Assigned Effective Time**
+- [x] **TASK-PVN-302: Implement Decision Preview Service with Server-Assigned Effective Time**
   - **Objective**: Orchestrate decision extraction, validation, and proposal creation under R1.
   - **Target Files**: `backend/app/services/decision_service.py`, `backend/app/api/decisions.py`.
   - **Details**:
@@ -288,7 +288,7 @@ flowchart TD
     - Reject ownership reassignments or ambiguous entities with 422 `review_required`.
     - Store valid proposal in `preview_store` and return `DecisionPreviewResponse`.
 
-- [ ] **TASK-PVN-303: Implement Decision Confirmation Service with R1 Verification**
+- [x] **TASK-PVN-303: Implement Decision Confirmation Service with R1 Verification**
   - **Objective**: Atomic confirmation, version validation, interval check, and RequestRecord idempotency.
   - **Target Files**: `backend/app/services/decision_service.py`, `backend/app/api/decisions.py`.
   - **Details**:
@@ -301,7 +301,7 @@ flowchart TD
     - Invalidate preview proposal.
     - Return `DecisionConfirmResponse` with new `evidence_version` and `changed_work_item_ids`.
 
-- [ ] **TASK-PVN-304: Implement Agent Run Orchestration Service (2 Bounded Question Types)**
+- [x] **TASK-PVN-304: Implement Agent Run Orchestration Service (2 Bounded Question Types)**
   - **Objective**: Wire agent invocation supporting (1) affected promises/owners and (2) decision lineage.
   - **Target Files**: `backend/app/services/agent_service.py`, `backend/app/api/agent.py`.
   - **Details**:
@@ -313,14 +313,14 @@ flowchart TD
     - Re-verify `evidence_version` before returning drafts; return 409 if version changed mid-run.
     - Handle provider timeouts; return labelled partial answer with empty drafts if AI fails.
 
-- [ ] **TASK-PVN-305: Implement Action Persistence & Retrieval Service**
+- [x] **TASK-PVN-305: Implement Action Persistence & Retrieval Service**
   - **Objective**: Validate, persist, and list reviewed follow-up actions with RequestRecord replay.
   - **Target Files**: `backend/app/services/action_service.py`, `backend/app/api/actions.py`.
   - **Details**:
     - `POST /api/actions`: Validate non-empty assignee, body, citations, and decision IDs. Validate exact quotes. Verify `expected_version`. Delegate to Ashwin's `save_action()`. Support idempotency replay via `RequestRecord`.
     - `GET /api/actions`: Fetch actions for commitment via Ashwin's `list_actions()`. Preserve each action's original `evidence_version`.
 
-- [ ] **TASK-PVN-306: Hour 6 Handoff Delivery**
+- [x] **TASK-PVN-306: Hour 6 Handoff Delivery**
   - **Objective**: Complete end-to-end workflow ready in API.
   - **Deliverables**: Jay can test the entire workflow from browser: preview note -> confirm update -> refetch impacts -> run agent -> edit draft -> save action.
 

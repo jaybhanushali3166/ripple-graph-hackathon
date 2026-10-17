@@ -85,6 +85,13 @@ class DemoService:
         # Generate a fresh dataset identity on every reset
         _current_dataset_id = f"ds_{uuid.uuid4().hex[:8]}"
         _current_revision = 1
+        # Clear pending unconfirmed decision previews, actions, and idempotency records
+        from backend.app.services.preview_store import get_preview_store
+        from backend.app.services.decision_service import clear_idempotency_records
+        from backend.app.services.action_service import clear_actions_store
+        get_preview_store().clear()
+        clear_idempotency_records()
+        clear_actions_store()
         new_version = get_active_evidence_version()
 
         repo = get_graph_repository()

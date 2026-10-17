@@ -1,67 +1,50 @@
 """Decision preview and confirmation endpoints for Ripple API."""
 
-import time
-import uuid
-from typing import Optional
+from functools import lru_cache
+from fastapi import APIRouter, Depends, Request
 
-from fastapi import APIRouter
-from pydantic import BaseModel
+from backend.app.schemas import (
+    DecisionConfirmRequest,
+    DecisionConfirmResponse,
+    DecisionPreviewRequest,
+    DecisionPreviewResponse,
+)
+from backend.app.services.decision_service import DecisionService
 
 router = APIRouter()
 
 
-class DecisionPreviewRequest(BaseModel):
-    """Payload to extract and preview a decision note."""
-    text: str
-    source_title: Optional[str] = None
+@lru_cache()
+def get_decision_service() -> DecisionService:
+    """Dependency provider for DecisionService."""
+    return DecisionService()
 
 
-class DecisionConfirmRequest(BaseModel):
-    """Payload to confirm an accepted preview proposal."""
-    preview_id: str
-    expected_version: str
-    idempotency_key: str
-
-
-@router.post("/decisions/preview")
-async def preview_decision(request: DecisionPreviewRequest):
+@router.post("/decisions/preview", response_model=DecisionPreviewResponse)
+async def preview_decision(
+    request: DecisionPreviewRequest,
+    decision_service: DecisionService = Depends(get_decision_service),
+):
     """Extract and preview an engineering decision delta.
 
     Assigns server-side effective_at timestamp and sets a 15-minute TTL.
     """
-    server_now = int(time.time() * 1000)
-    fifteen_mins_ms = 15 * 60 * 1000
-    preview_id = f"prev_{uuid.uuid4().hex[:12]}"
-
-    return {
-        "preview_id": preview_id,
-        "evidence_version": "ds_demo_001.rev_001",
-        "expires_at": server_now + fifteen_mins_ms,
-        "proposal": {
-            "work_item_id": "wi_permissions",
-            "available_at": 1793210399999,  # October 28, 2026 IST EOD
-            "effective_at": server_now,
-            "supersedes_id": "DEC-12",
-            "owner_id": "person_priya",
-            "evidence_quote": (
-                "Approved: permissions service delivery moves from October 21, 2026 "
-                "to October 28, 2026. Owner: Priya. This replaces decision DEC-12."
-            ),
-        },
-        "warnings": [],
-    }
+    return await decision_service.preview_decision(request)
 
 
-@router.post("/decisions/confirm")
-async def confirm_decision(request: DecisionConfirmRequest):
-    """Confirm a previewed decision proposal atomically.
+@router.post("/decisions/confirm", response_model=DecisionConfirmResponse)
+async def confirm_decision(
+    request: DecisionConfirmRequest,
+    http_request: Request,
+    decision_service: DecisionService = Depends(get_decision_service),
+):
+    """Confirm a previewed decision proposal atomically under single-worker mutation lock.
 
     Persists Source, Decision, and Forecast cutover, updating evidence version.
+    Supports idempotency replay via RequestRecord.
     """
-    decision_id = f"dec_{uuid.uuid4().hex[:12]}"
-
-    return {
-        "decision_id": decision_id,
-        "evidence_version": "ds_demo_001.rev_002",
-        "changed_work_item_ids": ["wi_permissions"],
-    }
+    lock = getattr(http_request.app.state, "mutation_lock", None)
+    if lock:
+        async with lock:
+            return await decision_service.confirm_decision(request)
+    return await decision_service.confirm_decision(request)
