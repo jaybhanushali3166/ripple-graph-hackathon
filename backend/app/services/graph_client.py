@@ -30,6 +30,10 @@ def get_graph_repository() -> Optional[GraphRepository]:
         host=settings.falkordb_host,
         port=settings.falkordb_port,
         graph_name=settings.falkordb_graph,
+        username=settings.falkordb_username,
+        password=settings.falkordb_password,
+        tls=settings.falkordb_tls,
+        tls_ca_certs=settings.falkordb_tls_ca_certs,
     )
     _live_repo = GraphRepository(client=client)
     return _live_repo
