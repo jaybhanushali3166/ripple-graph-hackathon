@@ -20,5 +20,10 @@ export function useReviewedMutation<Payload, Result>(submit: (payload: Payload) 
       setUncertain(unknown); setError(cause); throw cause;
     } finally { pendingRef.current = false; setPending(false); }
   }
-  return { run, pending, uncertain, error, blocked: pending || uncertain };
+  function abandon() {
+    attempt.current = null;
+    setUncertain(false);
+    setError(null);
+  }
+  return { run, abandon, pending, uncertain, error, blocked: pending || uncertain };
 }
