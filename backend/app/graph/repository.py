@@ -62,6 +62,32 @@ class GraphRepository:
         keys = ("id", "type", "title", "body", "source_timestamp", "content_hash")
         return dict(zip(keys, rows[0]))
 
+    def get_history(self, work_item_id):
+        """Accepted forecasts of a work item, oldest valid_from first, with establishing Decisions."""
+        version, forecasts = self._consistent(lambda: self._history(work_item_id))
+        return {"evidence_version": version, "forecasts": forecasts}
+
+    def _history(self, work_item_id):
+        rows = self.client.read(load_query("history_forecasts"), {"wid": work_item_id})
+        if not rows:
+            raise NotFound("work item %r not found" % work_item_id)
+        quotes = {fid: (fq, dq) for fid, fq, dq in
+                  self.client.read(load_query("history_citations"), {"wid": work_item_id})}
+        forecasts = []
+        for _, fid, available_at, valid_from, valid_to, decision_id, supersedes_id, summary in rows:
+            if fid is None:
+                continue  # work item exists but has no accepted forecast
+            fq, dq = quotes.get(fid, ([], []))
+            cited = []
+            for src, quote in fq + dq:  # forecast quote first; drop an identical decision quote
+                if src and _citation(src, quote) not in cited:
+                    cited.append(_citation(src, quote))
+            forecasts.append({"id": fid, "available_at": available_at, "valid_from": valid_from,
+                              "valid_to": valid_to, "decision_id": decision_id,
+                              "supersedes_id": supersedes_id, "decision_summary": summary,
+                              "citations": cited})
+        return sorted(forecasts, key=lambda f: (f["valid_from"], f["id"]))
+
     # ---- impacts
     def list_impacts(self, as_of_ms):
         version, impacts = self._consistent_impacts(as_of_ms, None)
@@ -83,12 +109,15 @@ class GraphRepository:
                 "warnings": [r for r in impact["reasons"] if warning_code(r) in OWNER_CODES]}
 
     def _consistent_impacts(self, as_of_ms, commitment_id):
-        """Run the multi-query read, retrying if the knowledge revision moved meanwhile."""
+        return self._consistent(lambda: self._impacts(as_of_ms, commitment_id))
+
+    def _consistent(self, read):
+        """Run a multi-query read, retrying if the knowledge revision moved meanwhile."""
         for _ in range(READ_ATTEMPTS):
             version = self.get_version()
-            impacts = self._impacts(as_of_ms, commitment_id)
+            result = read()
             if self.get_version() == version:
-                return version, impacts
+                return version, result
         raise InconsistentRead("knowledge revision changed during %d read attempts" % READ_ATTEMPTS)
 
     def _impacts(self, as_of_ms, commitment_id):
