@@ -1,10 +1,13 @@
 """Demo management and ingestion endpoints for Ripple API."""
 
-import uuid
-from typing import Optional
+from functools import lru_cache
+from typing import Any, Dict, Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
+
+from backend.app.schemas import DemoResetResponse
+from backend.app.services.demo_service import DemoService
 
 router = APIRouter()
 
@@ -14,25 +17,35 @@ class IngestRequest(BaseModel):
     fixtures_path: Optional[str] = None
 
 
-@router.post("/demo/reset")
-async def reset_demo():
+@lru_cache()
+def get_demo_service() -> DemoService:
+    """Dependency provider for DemoService."""
+    return DemoService()
+
+
+@router.post("/demo/reset", response_model=DemoResetResponse)
+async def reset_demo(
+    request: Request,
+    demo_service: DemoService = Depends(get_demo_service),
+):
     """Reseed dedicated synthetic demo graph and establish fresh dataset identity."""
-    new_dataset_id = f"ds_demo_{uuid.uuid4().hex[:6]}"
-    return {
-        "status": "reset",
-        "dataset_id": new_dataset_id,
-        "revision": 1,
-        "evidence_version": f"{new_dataset_id}.rev_001",
-        "message": "Demo environment reset successfully with fresh synthetic dataset.",
-    }
+    lock = getattr(request.app.state, "mutation_lock", None)
+    if lock:
+        async with lock:
+            return await demo_service.reset_demo()
+    return await demo_service.reset_demo()
 
 
 @router.post("/ingest")
-async def ingest_fixtures(request: Optional[IngestRequest] = None):
+async def ingest_fixtures(
+    request: Request,
+    payload: Optional[IngestRequest] = None,
+    demo_service: DemoService = Depends(get_demo_service),
+):
     """Ingest deterministic synthetic fixtures into FalkorDB."""
-    return {
-        "status": "ingested",
-        "records_imported": 24,
-        "evidence_version": "ds_demo_001.rev_001",
-        "message": "Deterministic synthetic fixture batch ingested successfully.",
-    }
+    lock = getattr(request.app.state, "mutation_lock", None)
+    fixtures_path = payload.fixtures_path if payload else None
+    if lock:
+        async with lock:
+            return await demo_service.ingest_fixtures(fixtures_path)
+    return await demo_service.ingest_fixtures(fixtures_path)

@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from backend.app.api import api_router
+from backend.app.errors import RippleError
 
 logger = logging.getLogger("ripple.api")
 
@@ -82,6 +83,24 @@ async def unified_http_exception_handler(
 
 app.add_exception_handler(StarletteHTTPException, unified_http_exception_handler)
 app.add_exception_handler(FastAPIHTTPException, unified_http_exception_handler)
+
+
+@app.exception_handler(RippleError)
+async def ripple_domain_exception_handler(
+    request: Request, exc: RippleError
+) -> JSONResponse:
+    """Map domain exceptions directly to agreed HTTP status codes and error envelopes."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": {
+                "code": exc.code,
+                "message": exc.message,
+                "details": exc.details,
+            }
+        },
+    )
+
 
 
 @app.exception_handler(Exception)
