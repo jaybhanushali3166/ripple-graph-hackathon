@@ -2,7 +2,9 @@
 
 Every mutation is one Cypher statement gated by the GraphState {dataset_id, revision}
 match, so a stale version creates and changes nothing. Validation runs first and raises
-typed errors without writing; the gate is what makes overlapping writers safe.
+typed errors without writing; the gate is what makes overlapping writers safe. A request
+that fails validation or the gate re-checks replay and version first, so losing a race
+reports StaleEvidence (or the winner's identical result), never ReviewRequired.
 Idempotency records (RequestRecord) are written inside the same statement as the facts
 they describe, scoped by dataset, operation and key.
 """
@@ -62,8 +64,12 @@ class GraphWrites:
             raise IdempotencyConflict("idempotency key %r was already used with a different request" % key)
         return json.loads(result_json)
 
-    def _fail_gate(self, dataset_id, revision, operation, key, request_hash):
-        """The gated write matched nothing: report a replay won by a racer, else stale evidence."""
+    def _raced(self, dataset_id, revision, operation, key, request_hash):
+        """After a failure, check whether a concurrent writer explains it.
+
+        Returns the stored result when an identical request won, raises StaleEvidence when
+        the version moved on, and returns None when the failure is the request's own.
+        """
         replay = self._replay(dataset_id, operation, key, request_hash)
         if replay is not None:
             return replay
@@ -71,14 +77,28 @@ class GraphWrites:
         if current != "%s:%d" % (dataset_id, revision):
             raise StaleEvidence("evidence version is %s, not %s:%d" % (current, dataset_id, revision),
                                 {"current_version": current})
+        return None
+
+    def _fail_gate(self, dataset_id, revision, operation, key, request_hash):
+        """The gated write matched nothing: report a replay won by a racer, else stale evidence."""
+        replay = self._raced(dataset_id, revision, operation, key, request_hash)
+        if replay is not None:
+            return replay
         raise ReviewRequired("graph changed under the request; review again")
 
     # ---- confirm_decision
+    def replay_confirm(self, proposal, source, expected_version, idempotency_key):
+        """The stored result of an identical completed confirm, else None. Writes nothing.
+
+        For callers that must answer a replay before their own rejections (preview expiry).
+        """
+        dataset_id, _ = _parse_version(expected_version)
+        request_hash = _confirm_hash(proposal, source, expected_version)
+        return self._replay(dataset_id, "confirm_decision", idempotency_key, request_hash)
+
     def confirm_decision(self, proposal, source, expected_version, idempotency_key, now_ms=None):
         dataset_id, revision = _parse_version(expected_version)
-        payload = {"proposal": {k: v for k, v in proposal.items() if v is not None},
-                   "source": source, "expected_version": expected_version}
-        request_hash = _sha(_canonical(payload))
+        request_hash = _confirm_hash(proposal, source, expected_version)
         replay = self._replay(dataset_id, "confirm_decision", idempotency_key, request_hash)
         if replay is not None:
             return replay
@@ -87,13 +107,20 @@ class GraphWrites:
         wi_id = proposal["work_item_id"]
         available_at, effective_at = proposal["available_at"], proposal["effective_at"]
         self._require_current(expected_version)
-        wi_name = self._validate_confirm(proposal, source, wi_id, effective_at, now)
-
         decision_id = "dec_" + _sha(dataset_id, source["id"], wi_id, available_at)[:16]
         forecast_id = "fc_" + _sha(dataset_id, source["id"], wi_id, available_at)[:16]
-        taken = {r[0] for r in self.client.read(load_query("confirm_ids"), {"ids": [decision_id, forecast_id]})}
-        if taken:
-            raise ReviewRequired("this note already produced %s; submit a new note" % ", ".join(sorted(taken)))
+        try:
+            wi_name = self._validate_confirm(proposal, source, wi_id, effective_at, now)
+            taken = {r[0] for r in self.client.read(load_query("confirm_ids"), {"ids": [decision_id, forecast_id]})}
+            if taken:
+                raise ReviewRequired("this note already produced %s; submit a new note" % ", ".join(sorted(taken)))
+        except (ReviewRequired, NotFound):
+            # A writer that committed after _require_current makes validation see its facts
+            # (e.g. its forecast's valid_from). Report that as the race it is, not a review error.
+            replay = self._raced(dataset_id, revision, "confirm_decision", idempotency_key, request_hash)
+            if replay is not None:
+                return replay
+            raise
         result = {"decision_id": decision_id, "evidence_version": "%s:%d" % (dataset_id, revision + 1),
                   "changed_work_item_ids": [wi_id]}
         written = self.client.write(load_query("confirm_decision"), {
@@ -155,7 +182,13 @@ class GraphWrites:
             return replay
 
         self._require_current(expected_version)
-        decision_ids = self._validate_action(action)
+        try:
+            decision_ids = self._validate_action(action)
+        except (ReviewRequired, NotFound):
+            replay = self._raced(dataset_id, revision, "save_action", idempotency_key, request_hash)
+            if replay is not None:
+                return replay
+            raise
 
         now = _now(now_ms)
         result = {"action_id": "act_" + _sha(dataset_id, idempotency_key)[:16], "status": "reviewed",
@@ -210,6 +243,12 @@ class GraphWrites:
                     "body": r[3], "citations": json.loads(r[4]), "based_on_decision_ids": sorted(r[8]),
                     "status": r[5], "evidence_version": r[6], "created_at": r[7]} for r in rows]
         return {"evidence_version": self.current_version(), "actions": actions}
+
+
+def _confirm_hash(proposal, source, expected_version):
+    payload = {"proposal": {k: v for k, v in proposal.items() if v is not None},
+               "source": source, "expected_version": expected_version}
+    return _sha(_canonical(payload))
 
 
 def _sha256_body(body):

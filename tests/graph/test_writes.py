@@ -324,6 +324,52 @@ class ConfirmDecisionTests(WriteTestCase):
                                           "AND f.id STARTS WITH 'fc_' AND NOT f.id ENDS WITH '_baseline' "
                                           "RETURN count(f)"), [[1]])
 
+    def commit_racer_after_version_check(self, racer):
+        """Patch _require_current so `racer` commits right after the first caller's version check passes."""
+        original = GraphWrites._require_current
+        fired = []
+
+        def check_then_race(writes, expected):
+            original(writes, expected)
+            if not fired:
+                fired.append(True)
+                racer(GraphRepository(GraphClient(graph_name=self.graph_name)))
+        return mock.patch.object(GraphWrites, "_require_current", check_then_race)
+
+    def test_losing_a_race_before_validation_is_stale_not_review(self):
+        """The loser validates against the winner's forecast (valid_from == its effective_at)."""
+        version = self.repo.get_version()
+        winner = {}
+        with self.commit_racer_after_version_check(lambda repo: winner.update(repo.confirm_decision(
+                make_proposal("2026-11-10"), make_source("src_b"), version, "key_b", NOW))):
+            with self.assertRaises(StaleEvidence) as caught:
+                self.confirm("key_a", source=make_source("src_a"), version=version)
+        self.assertEqual(caught.exception.details["current_version"], winner["evidence_version"])
+        self.assertEqual(self.client.read("MATCH (r:RequestRecord) RETURN count(r)"), [[1]])
+
+    def test_identical_racer_replays_the_winners_result(self):
+        version = self.repo.get_version()
+        winner = {}
+        with self.commit_racer_after_version_check(lambda repo: winner.update(repo.confirm_decision(
+                make_proposal(), make_source(), version, "k1", NOW))):
+            result = self.confirm("k1", version=version)
+        self.assertEqual(result, winner)
+        self.assertEqual(self.client.read("MATCH (r:RequestRecord) RETURN count(r)"), [[1]])
+
+    def test_genuine_review_error_is_unchanged_without_a_race(self):
+        with self.assertRaises(ReviewRequired):
+            self.confirm(proposal=make_proposal(owner_id="person_lena"))
+
+    def test_replay_confirm_returns_stored_result_without_writing(self):
+        version = self.repo.get_version()
+        self.assertIsNone(self.repo.replay_confirm(make_proposal(), make_source(), version, "k1"))
+        result = self.confirm("k1", version=version)
+        before = self.snapshot()
+        self.assertEqual(self.repo.replay_confirm(make_proposal(), make_source(), version, "k1"), result)
+        self.assertEqual(self.snapshot(), before)
+        with self.assertRaises(IdempotencyConflict):
+            self.repo.replay_confirm(make_proposal("2026-11-10"), make_source(), version, "k1")
+
 
 class ActionTests(WriteTestCase):
     def save(self, key="a1", action=None, version=None, now_ms=NOW):

@@ -270,6 +270,9 @@ class GraphRepository:
     def confirm_decision(self, proposal, source, expected_version, idempotency_key, now_ms=None):
         return self._writes().confirm_decision(proposal, source, expected_version, idempotency_key, now_ms)
 
+    def replay_confirm(self, proposal, source, expected_version, idempotency_key):
+        return self._writes().replay_confirm(proposal, source, expected_version, idempotency_key)
+
     def save_action(self, action, expected_version, idempotency_key, now_ms=None):
         return self._writes().save_action(action, expected_version, idempotency_key, now_ms)
 
