@@ -328,12 +328,12 @@ flowchart TD
 
 #### Phase 4: Integration, Negative Scenarios & Verification (6:00 – 8:00)
 
-- [ ] **TASK-PVN-401: Implement API Unit Test Suite**
+- [x] **TASK-PVN-401: Implement API Unit Test Suite**
   - **Objective**: Comprehensive test coverage for routes and schemas.
   - **Target Files**: `tests/api/test_health.py`, `tests/api/test_impacts.py`, `tests/api/test_decisions.py`, `tests/api/test_actions.py`, `tests/api/test_agent.py`.
   - **Coverage**: Payload validation, error envelopes, missing parameters, 404s.
 
-- [ ] **TASK-PVN-402: Implement End-to-End Integration Tests**
+- [x] **TASK-PVN-402: Implement End-to-End Integration Tests**
   - **Objective**: Automated test of the canonical scenario against live FalkorDB.
   - **Target Files**: `tests/integration/test_workflow.py`.
   - **Workflow**:
@@ -345,7 +345,7 @@ flowchart TD
     6. Run agent for Acme (impact & lineage questions); verify drafts and tool trace.
     7. Save reviewed action; verify list returns action.
 
-- [ ] **TASK-PVN-403: Implement Concurrency, Expiry & R1 Verification Test Suite**
+- [x] **TASK-PVN-403: Implement Concurrency, Expiry & R1 Verification Test Suite**
   - **Objective**: Test failure modes, contract compliance, and R1 edge cases.
   - **Target Files**: `tests/integration/test_edge_cases.py`.
   - **Cases**:
@@ -359,14 +359,14 @@ flowchart TD
     - Component-owner and null-warning behavior.
     - Restart persistence: verify saved Actions and updated forecasts survive backend/DB restart.
 
-- [ ] **TASK-PVN-404: Team Integration Rehearsal**
+- [x] **TASK-PVN-404: Team Integration Rehearsal**
   - **Objective**: Full team browser rehearsal and bug squashing.
 
 ---
 
 #### Phase 5: Reproducibility, CI, Documentation & Submission (8:00 – 10:00)
 
-- [ ] **TASK-PVN-501: Clean-Checkout README.md with Documented Limits**
+- [x] **TASK-PVN-501: Clean-Checkout README.md with Documented Limits**
   - **Objective**: Ensure anyone can clone and run the project with zero friction.
   - **Target Files**: `README.md`.
   - **Contents**:
@@ -379,7 +379,7 @@ flowchart TD
     - Test execution commands (`pytest`).
     - Documented limitations: deterministic seed mappings, server-timed live updates, and no automatic downstream replanning.
 
-- [ ] **TASK-PVN-502: Compile Verification Report**
+- [x] **TASK-PVN-502: Compile Verification Report**
   - **Objective**: Document measured verification data across all layers.
   - **Target Files**: `docs/verification.md`.
   - **Contents**:
@@ -388,12 +388,12 @@ flowchart TD
     - Negative scenario test results.
     - Data persistence and restart proof.
 
-- [ ] **TASK-PVN-503: Minimal GitHub Actions CI Configuration**
+- [x] **TASK-PVN-503: Minimal GitHub Actions CI Configuration**
   - **Objective**: Minimal CI workflow without displacing core verification or working demo.
   - **Target Files**: `.github/workflows/ci.yml`.
   - **Steps**: Lint (ruff/flake8) and run meaningful pytest suite. Defer broad CI expansion.
 
-- [ ] **TASK-PVN-504: Submission Coordination**
+- [x] **TASK-PVN-504: Submission Coordination**
   - **Objective**: Assemble repository links, demo video, and submit candidate by 10:00 PM IST freeze.
 
 
