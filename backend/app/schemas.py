@@ -95,7 +95,7 @@ class WorkItemHistoryResponse(BaseModel):
 
 class DecisionPreviewRequest(BaseModel):
     text: str
-    source_title: str
+    source_title: str | None = None
 
 
 class DecisionProposal(BaseModel):

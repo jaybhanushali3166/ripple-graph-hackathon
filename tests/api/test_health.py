@@ -177,12 +177,13 @@ def test_decisions_preview_and_confirm():
 
 def test_agent_run_endpoint():
     """Verify POST /api/agent/run returns cited answer, tool trace, and drafts."""
+    active_version = client.get("/api/impacts").json()["evidence_version"]
     response = client.post(
         "/api/agent/run",
         json={
             "message": "What is the impact on Acme SSO?",
             "commitment_id": "com_acme_sso",
-            "expected_version": "ds_demo_001.rev_001",
+            "expected_version": active_version,
         },
     )
     assert response.status_code == 200
@@ -196,11 +197,12 @@ def test_agent_run_endpoint():
 
 def test_actions_endpoints():
     """Verify POST and GET /api/actions."""
+    active_version = client.get("/api/impacts").json()["evidence_version"]
     create_res = client.post(
         "/api/actions",
         json={
             "idempotency_key": "idem_act_001",
-            "expected_version": "ds_demo_001.rev_001",
+            "expected_version": active_version,
             "commitment_id": "com_acme_sso",
             "kind": "internal_escalation",
             "assignee_id": "person_priya",
