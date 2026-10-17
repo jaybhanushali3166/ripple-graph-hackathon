@@ -173,7 +173,7 @@ Every `SourceRef.quote` must be an exact substring of the stored `Source.body`. 
 | **Provenance** | Pre-seeded baseline decisions (`DEC-12`, `dec_baseline_*`) | Dynamically extracted proposal with `supersedes_id` |
 | **Validation** | Verified by fixture integrity tests (`tests/graph/test_fixtures.py`) | Runtime validation against graph candidates and exact quotes |
 | **Effective Time** | Historical seeded timestamps (October 1, 2026) | Server `preview_created_at` at preview generation |
-| **Test Verification Record** | Checked deterministically in `tests/ai/test_harbor_fixtures.py` | Unit and integration test suite exercises deterministic test doubles to verify schema, review triggers, and quote bounds; live Gemini smoke tests are executed when `LLM_API_KEY` is provided. |
+| **Test Verification Record** | Checked deterministically in `tests/ai/test_harbor_fixtures.py` | Unit and integration test suite exercises deterministic test doubles to verify schema, review triggers, and quote bounds; live Ollama Cloud smoke tests are executed when `LLM_API_KEY` is provided. |
 
 ---
 

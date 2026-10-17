@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     dev_mocks: bool = False
     llm_api_key: str | None = None
     llm_model: str = "gemma4:31b"
+    llm_base_url: str = "https://ollama.com"
+    ollama_api_key: str | None = None
+    ollama_base_url: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -51,6 +51,7 @@ class AgentService:
                 provider: LLMProvider = get_provider(
                     api_key=settings.llm_api_key,
                     model=settings.llm_model,
+                    base_url=settings.llm_base_url,
                 )
             else:
                 provider = DeterministicTestDouble(tool_step_handler=_default_tool_step_handler)
