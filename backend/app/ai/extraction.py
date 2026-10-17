@@ -33,7 +33,7 @@ CUSTOM_EFFECTIVE_RE = re.compile(
     re.IGNORECASE,
 )
 
-YEAR_CHECK_RE = re.compile(r"\b(202[4-9])\b")
+YEAR_CHECK_RE = re.compile(r"\b(19\d{2}|20\d{2})\b")
 OWNERSHIP_CHANGE_RE = re.compile(
     r"\b(reassign(?:ed|ing)?\s+owner|transferred\s+ownership|new\s+owner\s+is|"
     r"replacing\s+owner|owner\s+changed\s+to)\b",
@@ -41,7 +41,8 @@ OWNERSHIP_CHANGE_RE = re.compile(
 )
 
 DATE_EXPRESSION_RE = re.compile(
-    r"\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:,\s*\d{4})?\b|"
+    r"\b(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\s+\d{1,2}(?:,\s*\d{4}|\s+\d{4})?\b|"
+    r"\b\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)(?:\s+\d{4}|,\s*\d{4})?\b|"
     r"\b\d{4}-\d{2}-\d{2}\b",
     re.IGNORECASE,
 )
@@ -70,17 +71,27 @@ def _check_conflicting_dates_in_text(text: str) -> None:
 
 def _verify_date_in_text(date_iso: str, dt_obj: datetime, text: str) -> None:
     """Verify that the extracted delivery date actually appears verbatim in the note."""
+    day = dt_obj.strftime("%d")
+    day_no_zero = day.lstrip("0")
+    month_name = dt_obj.strftime("%B")
+    month_abbr = dt_obj.strftime("%b")
+    year = dt_obj.strftime("%Y")
+
     formatted_variants = [
         date_iso,
-        dt_obj.strftime("%B %d, %Y"),
-        dt_obj.strftime("%B %d %Y"),
-        dt_obj.strftime("%b %d, %Y"),
-        dt_obj.strftime("%d %B %Y"),
-        dt_obj.strftime("%d %b %Y"),
+        f"{month_name} {day}, {year}",
+        f"{month_name} {day_no_zero}, {year}",
+        f"{month_name} {day} {year}",
+        f"{month_name} {day_no_zero} {year}",
+        f"{month_abbr} {day}, {year}",
+        f"{month_abbr} {day_no_zero}, {year}",
+        f"{month_abbr} {day} {year}",
+        f"{month_abbr} {day_no_zero} {year}",
+        f"{day} {month_name} {year}",
+        f"{day_no_zero} {month_name} {year}",
+        f"{day} {month_abbr} {year}",
+        f"{day_no_zero} {month_abbr} {year}",
     ]
-    # Check day without leading zero e.g. "October 28, 2026"
-    day_no_zero = dt_obj.strftime("%d").lstrip("0")
-    formatted_variants.append(f"{dt_obj.strftime('%B')} {day_no_zero}, {dt_obj.strftime('%Y')}")
 
     found = any(v.lower() in text.lower() for v in formatted_variants)
     if not found:
@@ -124,9 +135,6 @@ def _parse_delivery_date(date_str: str, text: str) -> int:
             field="delivery_date",
         )
 
-    # Server check: verify that this date actually appears in the text!
-    _verify_date_in_text(iso_date, dt_obj, text)
-
     # Server check: verify that the note text has an explicit 4-digit year
     if not YEAR_CHECK_RE.search(text):
         raise ReviewRequiredError(
@@ -137,11 +145,14 @@ def _parse_delivery_date(date_str: str, text: str) -> int:
     # Check for dates in note missing year
     all_date_matches = DATE_EXPRESSION_RE.findall(text)
     for dm in all_date_matches:
-        if not YEAR_CHECK_RE.search(dm) and not re.search(r"\b202[4-9]\b", text):
+        if not YEAR_CHECK_RE.search(dm):
             raise ReviewRequiredError(
                 reason=f"missing_or_ambiguous_year: date expression '{dm}' lacks explicit 4-digit year",
                 field="delivery_date",
             )
+
+    # Server check: verify that this date actually appears in the text!
+    _verify_date_in_text(iso_date, dt_obj, text)
 
     return end_of_day_ms(iso_date)
 

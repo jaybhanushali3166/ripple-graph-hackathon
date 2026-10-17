@@ -7,7 +7,10 @@ from backend.app.ai.agent import (
     run_agent,
 )
 from backend.app.ai.provider import (
+    AIProviderError,
+    AgentStepResult,
     DeterministicTestDouble,
+    ToolCall,
 )
 from backend.app.ai.tools import AgentTools
 from backend.app.schemas import AgentRunRequest
@@ -31,6 +34,10 @@ class AgentTestRepo:
             "src_cedar_handoff": {
                 "id": "src_cedar_handoff",
                 "body": "Commitment: Data export delivered by October 23, 2026.",
+            },
+            "src_birch_handoff": {
+                "id": "src_birch_handoff",
+                "body": "Commitment: Compliance audit logging delivered by October 23, 2026.",
             },
             "src_dec12": {
                 "id": "src_dec12",
@@ -103,6 +110,30 @@ class AgentTestRepo:
                     ],
                 },
                 {
+                    "commitment_id": "com_birch_audit",
+                    "customer": {"id": "cust_birch", "name": "Birch Financial"},
+                    "title": "Compliance Audit Logging",
+                    "due_at": 1792780199999,  # 2026-10-23
+                    "status": "date_conflict",
+                    "reasons": ["Blocker wi_permissions is due after Oct 23"],
+                    "blockers": [
+                        {
+                            "work_item_id": "wi_permissions",
+                            "name": "Permissions Service",
+                            "forecast_id": "fc_permissions_v2",
+                            "available_at": 1793212199999,  # 2026-10-28
+                            "decision_id": "dec_live_permissions_001",
+                        }
+                    ],
+                    "paths": [],
+                    "engineering_owner": {"id": "person_priya", "name": "Priya Sharma"},
+                    "account_owner": {"id": "person_leo", "name": "Leo Chen"},
+                    "citations": [
+                        {"source_id": "src_permissions_ticket", "quote": "Approved: permissions service delivery moves from October 21, 2026 to October 28, 2026. Owner: Priya. This replaces decision DEC-12."},
+                        {"source_id": "src_birch_handoff", "quote": "Commitment: Compliance audit logging delivered by October 23, 2026."},
+                    ],
+                },
+                {
                     "commitment_id": "com_cedar_export",
                     "customer": {"id": "cust_cedar", "name": "Cedar Technologies"},
                     "title": "Automated Data Export Service",
@@ -151,11 +182,26 @@ class AgentTestRepo:
     def resolve_entity(self, query: str, kind: str | None = None) -> list:
         if "acme" in query.lower():
             return [{"id": "cust_acme", "kind": "customer", "name": "Acme Corp"}]
+        if "birch" in query.lower():
+            return [{"id": "cust_birch", "kind": "customer", "name": "Birch Financial"}]
         if "cedar" in query.lower():
             return [{"id": "cust_cedar", "kind": "customer", "name": "Cedar Technologies"}]
         if "permissions" in query.lower():
             return [{"id": "wi_permissions", "kind": "work_item", "name": "Permissions Service"}]
         return []
+
+
+@pytest.mark.asyncio
+async def test_agent_raises_without_provider():
+    """run_agent strictly requires an LLMProvider and must never silently mock in production."""
+    repo = AgentTestRepo()
+    req = AgentRunRequest(
+        message="What is the impact on Acme?",
+        commitment_id="com_acme_sso",
+        expected_version="ds_demo_20261017:rev_2",
+    )
+    with pytest.raises(AIProviderError, match="An LLMProvider is required"):
+        await run_agent(request=req, tools=repo, provider=None)
 
 
 @pytest.mark.asyncio
@@ -167,7 +213,7 @@ async def test_agent_impact_and_owners_acme_conflict():
         commitment_id="com_acme_sso",
         expected_version="ds_demo_20261017:rev_2",
     )
-    res = await run_agent(request=req, tools=repo)
+    res = await run_agent(request=req, tools=repo, provider=DeterministicTestDouble())
 
     assert res.status == "complete"
     assert res.evidence_version == repo.version
@@ -208,7 +254,7 @@ async def test_agent_lineage_question():
         message="Why did the permissions forecast change from DEC-12?",
         expected_version="ds_demo_20261017:rev_2",
     )
-    res = await run_agent(request=req, tools=repo)
+    res = await run_agent(request=req, tools=repo, provider=DeterministicTestDouble())
 
     assert res.status == "complete"
     assert "2026-10-21" in res.answer
@@ -231,7 +277,7 @@ async def test_agent_completeness_warning_surfaced_for_selected_commitment():
         commitment_id="com_incomplete",
         expected_version="ds_demo_20261017:rev_2",
     )
-    res = await run_agent(request=req, tools=repo)
+    res = await run_agent(request=req, tools=repo, provider=DeterministicTestDouble())
 
     assert res.status == "partial"
     assert any("missing_engineering_owner" in w for w in res.warnings)
@@ -245,7 +291,7 @@ async def test_agent_unknown_customer_resolution():
         message="Which commitments are affected by the Globex delay?",
         expected_version="ds_demo_20261017:rev_2",
     )
-    res = await run_agent(request=req, tools=repo)
+    res = await run_agent(request=req, tools=repo, provider=DeterministicTestDouble())
 
     assert any(t.tool == "resolve_entity" and t.arguments.get("query") == "Globex" for t in res.tool_trace)
     assert "not found" in res.answer.lower() or "no commitments" in res.answer.lower()
@@ -260,7 +306,7 @@ async def test_agent_stale_evidence_version_rejected():
         expected_version="ds_demo_20261017:rev_1",  # Stale!
     )
     with pytest.raises(StaleEvidenceError) as exc_info:
-        await run_agent(request=req, tools=repo)
+        await run_agent(request=req, tools=repo, provider=DeterministicTestDouble())
     assert exc_info.value.expected == "ds_demo_20261017:rev_1"
     assert exc_info.value.current == "ds_demo_20261017:rev_2"
 
@@ -274,7 +320,7 @@ async def test_agent_control_customer_no_conflict():
         commitment_id="com_cedar_export",
         expected_version="ds_demo_20261017:rev_2",
     )
-    res = await run_agent(request=req, tools=repo)
+    res = await run_agent(request=req, tools=repo, provider=DeterministicTestDouble())
 
     assert res.status == "complete"
     assert "no detected date conflict" in res.answer
@@ -313,6 +359,146 @@ async def test_agent_strictly_respects_tool_budget():
         commitment_id="com_acme_sso",
         expected_version="ds_demo_20261017:rev_2",
     )
-    res = await run_agent(request=req, tools=tool_runner)
+    res = await run_agent(request=req, tools=tool_runner, provider=DeterministicTestDouble())
     assert len(tool_runner.trace) <= 6
     assert res.status in ("complete", "partial")
+
+
+@pytest.mark.asyncio
+async def test_agent_multi_turn_protocol():
+    """Tool protocol: model turn with functionCalls is immediately followed by function turn with functionResponses."""
+    repo = AgentTestRepo()
+    provider = DeterministicTestDouble()
+    req = AgentRunRequest(
+        message="What is the impact of permissions delay on Acme?",
+        commitment_id="com_acme_sso",
+        expected_version="ds_demo_20261017:rev_2",
+    )
+    res = await run_agent(request=req, tools=repo, provider=provider)
+    assert res.status == "complete"
+
+    # Inspect call_history messages in provider
+    assert len(provider.call_history) > 1
+    # Check intermediate call messages
+    second_step_messages = provider.call_history[1]["messages"]
+    model_turns = [m for m in second_step_messages if m.get("role") == "model" and "function_calls" in m]
+    function_turns = [m for m in second_step_messages if m.get("role") == "function" and "function_responses" in m]
+
+    assert len(model_turns) >= 1
+    assert len(function_turns) >= 1
+
+    # Verify pairing order: each function turn comes immediately after model turn
+    for i, m in enumerate(second_step_messages):
+        if m.get("role") == "function":
+            assert second_step_messages[i - 1].get("role") == "model"
+
+
+@pytest.mark.asyncio
+async def test_agent_fallback_draft_dynamic_text_birch():
+    """Fallback draft text is dynamically constructed from customer, title, and blockers (not hardcoded for Acme)."""
+    repo = AgentTestRepo()
+    req = AgentRunRequest(
+        message="What is the impact of permissions delay on Birch?",
+        commitment_id="com_birch_audit",
+        expected_version="ds_demo_20261017:rev_2",
+    )
+    res = await run_agent(request=req, tools=repo, provider=DeterministicTestDouble())
+
+    assert res.status == "complete"
+    assert len(res.drafts) == 2
+    esc = next(d for d in res.drafts if d.kind == "internal_escalation")
+    # Must NOT have hardcoded Acme or SSO text
+    assert "Acme" not in esc.body
+    assert "Single Sign-On" not in esc.body
+    # Must dynamically mention Birch and Compliance Audit Logging
+    assert "Birch Financial" in esc.body
+    assert "Compliance Audit Logging" in esc.body
+    assert "Permissions Service" in esc.body
+
+
+@pytest.mark.asyncio
+async def test_agent_model_draft_unretrieved_commitment_rejected():
+    """Drafts created by model for unretrieved commitments are rejected rather than checked against wrong commitment."""
+    repo = AgentTestRepo()
+
+    def bad_draft_handler(messages, tools):
+        completed = {
+            m.get("function_response", {}).get("name")
+            for m in messages
+            if m.get("role") == "function"
+        }
+        for m in messages:
+            if m.get("role") == "function" and "function_responses" in m:
+                for fr in m["function_responses"]:
+                    completed.add(fr.get("name"))
+
+        if "draft_followup" not in completed:
+            return AgentStepResult(
+                tool_calls=[
+                    ToolCall(
+                        name="draft_followup",
+                        arguments={
+                            "kind": "internal_escalation",
+                            "commitment_id": "com_unretrieved_xyz",
+                            "assignee_id": "person_priya",
+                            "body": "Escalation for unretrieved item.",
+                            "citations": [{"source_id": "src_permissions_ticket", "quote": "Approved: permissions service delivery moves from October 21, 2026 to October 28, 2026. Owner: Priya. This replaces decision DEC-12."}],
+                            "based_on_decision_ids": ["dec_live_permissions_001"],
+                        },
+                    )
+                ]
+            )
+        return AgentStepResult(text="Done drafting.")
+
+    provider = DeterministicTestDouble(tool_step_handler=bad_draft_handler)
+    req = AgentRunRequest(
+        message="Check status",
+        commitment_id="com_acme_sso",
+        expected_version="ds_demo_20261017:rev_2",
+    )
+    res = await run_agent(request=req, tools=repo, provider=provider)
+    assert any("never retrieved in evidence" in w for w in res.warnings)
+
+
+@pytest.mark.asyncio
+async def test_agent_version_drift_detected():
+    """If evidence version changes mid-run, agent returns partial status and surfaces warning."""
+    repo = AgentTestRepo()
+
+    def version_drift_handler(messages, tools):
+        # Mutate repo version mid-run to simulate a reseed or concurrent confirm
+        repo.version = "ds_demo_20261017:rev_3"
+        return AgentStepResult(text="Finished answering.")
+
+    provider = DeterministicTestDouble(tool_step_handler=version_drift_handler)
+    req = AgentRunRequest(
+        message="What is the status?",
+        commitment_id="com_acme_sso",
+        expected_version="ds_demo_20261017:rev_2",
+    )
+    res = await run_agent(request=req, tools=repo, provider=provider)
+    assert res.status == "partial"
+    assert any("Evidence version changed" in w for w in res.warnings)
+    assert res.evidence_version == "ds_demo_20261017:rev_3"
+
+
+@pytest.mark.asyncio
+async def test_agent_unknown_tool_handled_and_bounded():
+    """Model calling unknown tools receives an error response, increments budget, and cannot loop infinitely."""
+    repo = AgentTestRepo()
+
+    def unknown_tool_handler(messages, tools):
+        # Model keeps calling unknown tool
+        return AgentStepResult(tool_calls=[ToolCall(name="non_existent_tool", arguments={})])
+
+    provider = DeterministicTestDouble(tool_step_handler=unknown_tool_handler)
+    req = AgentRunRequest(
+        message="Run unknown tool",
+        commitment_id="com_acme_sso",
+        expected_version="ds_demo_20261017:rev_2",
+    )
+    res = await run_agent(request=req, tools=repo, provider=provider)
+    assert res.status == "partial"
+    assert any("Model attempted unknown tool" in w for w in res.warnings)
+    # Never exceed 6 calls
+    assert len(res.tool_trace) <= 6

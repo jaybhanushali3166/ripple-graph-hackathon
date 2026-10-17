@@ -54,14 +54,15 @@ To assist Jay in recording the demo video, here are the verified query scenarios
 Configuration variables required by the AI layer:
 
 ```bash
-# LLM Provider Configuration
-# When set, the system uses live Gemini LLM calls with tool calling.
-# API keys are passed strictly via the 'x-goog-api-key' HTTP header (never in URLs or query strings).
-LLM_API_KEY=your-gemini-api-key-here
-LLM_MODEL=gemini-2.0-flash
+# LLM Provider Configuration (Ollama Cloud)
+# When set, the system uses live Ollama Cloud LLM calls with native function calling.
+# API keys are passed strictly via the 'Authorization: Bearer <token>' HTTP header.
+LLM_API_KEY=your-ollama-api-key-here
+LLM_MODEL=llama3.3
+LLM_BASE_URL=https://ollama.com
 
 # Development & Test Mode
-# When false, live Gemini API is invoked.
+# When false, live Ollama API is invoked.
 # When true, deterministic test doubles can be used during local offline development.
 DEV_MOCKS=false
 ```

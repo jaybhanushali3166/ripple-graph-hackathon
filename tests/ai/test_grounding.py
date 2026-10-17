@@ -229,3 +229,33 @@ def test_build_grounded_answer_lineage_details():
     assert "dec_live_permissions_001" in answer
     assert "moves to October 28" in answer
     assert "Recorded vs. Inferred Facts" in answer
+
+
+def test_whitespace_only_quote_rejected():
+    """Quotes containing only whitespace are rejected and cannot match non-empty bodies."""
+    repo = DummyRepo()
+    assert not verify_citation_exact_quote("src_real", "   ", repo)
+    assert not verify_citation_exact_quote("src_real", "\t\n ", repo)
+
+
+def test_draft_with_unknown_decision_id_rejected():
+    """Drafts citing decision IDs not in active blockers are rejected rather than silently replaced."""
+    repo = DummyRepo()
+    impact = {
+        "commitment_id": "com_acme_sso",
+        "engineering_owner": {"id": "person_priya", "name": "Priya Sharma"},
+        "account_owner": {"id": "person_maya", "name": "Maya Patel"},
+        "blockers": [{"decision_id": "dec_live_permissions_001"}],
+        "citations": [{"source_id": "src_real", "quote": "permissions service delivery moves"}],
+    }
+    draft = Draft(
+        kind="internal_escalation",
+        commitment_id="com_acme_sso",
+        assignee_id="person_priya",
+        body="Hi Priya, please coordinate.",
+        citations=[SourceRef(source_id="src_real", quote="permissions service delivery moves")],
+        based_on_decision_ids=["DEC-UNKNOWN-999"],
+    )
+    val_draft, warnings = validate_draft(draft, impact, repo)
+    assert val_draft is None
+    assert any("none of based_on_decision_ids" in w for w in warnings)

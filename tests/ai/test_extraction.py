@@ -312,3 +312,54 @@ async def test_provider_timeout_propagates_honestly():
             now=1792240151000,
             provider=timeout_double,
         )
+
+
+@pytest.mark.asyncio
+async def test_extraction_unpadded_date_formats_accepted():
+    """Dates formatted as 'Oct 5, 2026' or '5 October 2026' without leading zero pass verification."""
+    note = (
+        "Approved: permissions service delivery moves to Oct 5, 2026. "
+        "Owner: Priya. This replaces decision DEC-12."
+    )
+    proposal = RawExtractedProposal(
+        work_item_name_or_id="permissions",
+        delivery_date="2026-10-05",
+        supersedes_decision_id="DEC-12",
+        owner_name_or_id="Priya",
+        evidence_quote="delivery moves to Oct 5, 2026",
+    )
+    double = DeterministicTestDouble(structured_responses={"Engineering Note to Extract": proposal})
+    result = await extract_decision(
+        text=note,
+        candidates=CANDIDATES,
+        source_id="src_ticket_123",
+        now=1792240151000,
+        provider=double,
+    )
+    assert result.available_at == end_of_day_ms("2026-10-05")
+
+
+@pytest.mark.asyncio
+async def test_extraction_date_missing_year_rejected_even_with_year_elsewhere():
+    """A date expression missing explicit year is rejected even if a year appears elsewhere in the note."""
+    note = (
+        "Approved: permissions service delivery moves to December 12. "
+        "Owner: Priya. Planning context: (2026 roadmap)."
+    )
+    proposal = RawExtractedProposal(
+        work_item_name_or_id="permissions",
+        delivery_date="2026-12-12",
+        supersedes_decision_id="DEC-12",
+        owner_name_or_id="Priya",
+        evidence_quote="permissions service delivery moves to December 12",
+    )
+    double = DeterministicTestDouble(structured_responses={"Engineering Note to Extract": proposal})
+    with pytest.raises(ReviewRequiredError) as exc_info:
+        await extract_decision(
+            text=note,
+            candidates=CANDIDATES,
+            source_id="src_ticket_123",
+            now=1792240151000,
+            provider=double,
+        )
+    assert "missing_or_ambiguous_year" in exc_info.value.reason

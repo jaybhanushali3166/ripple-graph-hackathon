@@ -50,7 +50,7 @@ def verify_citation_exact_quote(
     cached_sources: dict[str, Any] | None = None,
 ) -> bool:
     """Verify that quote is an exact verbatim substring of the stored Source.body."""
-    if not source_id or not quote:
+    if not source_id or not quote or not quote.strip():
         return False
 
     cached = cached_sources or {}
@@ -78,7 +78,8 @@ def verify_citation_exact_quote(
         return False
 
     # Check exact verbatim substring
-    return quote in source_body or quote.strip() in source_body
+    stripped = quote.strip()
+    return quote in source_body or (bool(stripped) and stripped in source_body)
 
 
 def validate_citations_list(
@@ -176,11 +177,11 @@ def validate_draft(
 
     validated_dec_ids = [d for d in draft.based_on_decision_ids if d in known_decision_ids]
     if not validated_dec_ids:
-        if known_decision_ids:
-            validated_dec_ids = sorted(known_decision_ids)
-        else:
-            warnings.append(f"Draft rejected: no active blocker decision IDs found for {draft.commitment_id}.")
-            return None, warnings
+        warnings.append(
+            f"Draft rejected: none of based_on_decision_ids ({draft.based_on_decision_ids}) "
+            f"match known blocker decision IDs ({sorted(known_decision_ids)})."
+        )
+        return None, warnings
     draft.based_on_decision_ids = validated_dec_ids
 
     # 4. Citations verification: Draft MUST have verified citations!
@@ -188,20 +189,12 @@ def validate_draft(
     warnings.extend(cit_warnings)
 
     if not valid_citations:
-        # Fallback to verify if impact has verified citations that can support this draft
-        impact_cits = [
-            SourceRef(source_id=c["source_id"], quote=c["quote"])
-            for c in impact_data.get("citations", [])
-            if verify_citation_exact_quote(c["source_id"], c["quote"], repo, cached_sources)
-        ]
-        if impact_cits:
-            draft.citations = impact_cits
-        else:
-            warnings.append(f"Draft rejected: no verified citations found to ground draft for {draft.commitment_id}.")
-            return None, warnings
-    else:
-        draft.citations = valid_citations
+        warnings.append(
+            f"Draft rejected: no verified citations found to ground draft for {draft.commitment_id}."
+        )
+        return None, warnings
 
+    draft.citations = valid_citations
     return draft, warnings
 
 

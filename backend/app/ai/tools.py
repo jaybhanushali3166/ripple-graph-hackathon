@@ -39,14 +39,14 @@ TOOL_DECLARATIONS: list[dict[str, Any]] = [
         "name": "resolve_entity",
         "description": "Resolve an entity name, ID, or alias to candidate graph entities (customers, commitments, work_items, people). Preserves ambiguity.",
         "parameters": {
-            "type": "OBJECT",
+            "type": "object",
             "properties": {
                 "query": {
-                    "type": "STRING",
+                    "type": "string",
                     "description": "The name, alias, or ID to look up (e.g. 'Acme', 'permissions', 'Priya').",
                 },
                 "kind": {
-                    "type": "STRING",
+                    "type": "string",
                     "description": "Optional entity kind filter: 'customer', 'commitment', 'work_item', 'person'.",
                 },
             },
@@ -57,10 +57,10 @@ TOOL_DECLARATIONS: list[dict[str, Any]] = [
         "name": "find_impacted_commitments",
         "description": "Retrieve current statuses, blockers, version, and completeness for all commitments in the graph.",
         "parameters": {
-            "type": "OBJECT",
+            "type": "object",
             "properties": {
                 "as_of": {
-                    "type": "INTEGER",
+                    "type": "integer",
                     "description": "Optional UTC epoch ms timestamp. Defaults to current server time.",
                 },
             },
@@ -70,14 +70,14 @@ TOOL_DECLARATIONS: list[dict[str, Any]] = [
         "name": "get_evidence",
         "description": "Retrieve ordered dependency paths, blockers, status, and source citations for a specific commitment ID.",
         "parameters": {
-            "type": "OBJECT",
+            "type": "object",
             "properties": {
                 "commitment_id": {
-                    "type": "STRING",
+                    "type": "string",
                     "description": "The canonical commitment ID (e.g. 'com_acme_sso').",
                 },
                 "as_of": {
-                    "type": "INTEGER",
+                    "type": "integer",
                     "description": "Optional UTC epoch ms timestamp.",
                 },
             },
@@ -88,14 +88,14 @@ TOOL_DECLARATIONS: list[dict[str, Any]] = [
         "name": "get_owners",
         "description": "Retrieve accountable engineering and account owners for a commitment. For date conflicts, returns the unique blocking component owner.",
         "parameters": {
-            "type": "OBJECT",
+            "type": "object",
             "properties": {
                 "commitment_id": {
-                    "type": "STRING",
+                    "type": "string",
                     "description": "The canonical commitment ID (e.g. 'com_acme_sso').",
                 },
                 "as_of": {
-                    "type": "INTEGER",
+                    "type": "integer",
                     "description": "Optional UTC epoch ms timestamp.",
                 },
             },
@@ -106,10 +106,10 @@ TOOL_DECLARATIONS: list[dict[str, Any]] = [
         "name": "get_forecast_history",
         "description": "Retrieve accepted forecast versions, valid intervals, establishing decisions, and citations for a work item ID.",
         "parameters": {
-            "type": "OBJECT",
+            "type": "object",
             "properties": {
                 "work_item_id": {
-                    "type": "STRING",
+                    "type": "string",
                     "description": "The work item ID (e.g. 'wi_permissions').",
                 },
             },
@@ -120,10 +120,10 @@ TOOL_DECLARATIONS: list[dict[str, Any]] = [
         "name": "get_source",
         "description": "Retrieve full source record with body, title, and timestamp by source ID to inspect exact source quotes.",
         "parameters": {
-            "type": "OBJECT",
+            "type": "object",
             "properties": {
                 "source_id": {
-                    "type": "STRING",
+                    "type": "string",
                     "description": "The source ID (e.g. 'src_permissions_ticket', 'src_dec12').",
                 },
             },
@@ -134,39 +134,39 @@ TOOL_DECLARATIONS: list[dict[str, Any]] = [
         "name": "draft_followup",
         "description": "Prepare a validated follow-up draft (internal_escalation or customer_update) grounded in retrieved graph evidence.",
         "parameters": {
-            "type": "OBJECT",
+            "type": "object",
             "properties": {
                 "kind": {
-                    "type": "STRING",
+                    "type": "string",
                     "description": "'internal_escalation' or 'customer_update'.",
                 },
                 "commitment_id": {
-                    "type": "STRING",
+                    "type": "string",
                     "description": "The commitment ID being addressed.",
                 },
                 "assignee_id": {
-                    "type": "STRING",
+                    "type": "string",
                     "description": "The accountable person ID.",
                 },
                 "body": {
-                    "type": "STRING",
+                    "type": "string",
                     "description": "The drafted message body.",
                 },
                 "citations": {
-                    "type": "ARRAY",
+                    "type": "array",
                     "items": {
-                        "type": "OBJECT",
+                        "type": "object",
                         "properties": {
-                            "source_id": {"type": "STRING"},
-                            "quote": {"type": "STRING"},
+                            "source_id": {"type": "string"},
+                            "quote": {"type": "string"},
                         },
                         "required": ["source_id", "quote"],
                     },
                     "description": "Exact quoted evidence supporting this draft.",
                 },
                 "based_on_decision_ids": {
-                    "type": "ARRAY",
-                    "items": {"type": "STRING"},
+                    "type": "array",
+                    "items": {"type": "string"},
                     "description": "Decisions establishing the active conflict or change.",
                 },
             },
@@ -197,6 +197,7 @@ class AgentTools:
             "owners": {},
             "drafts": [],
         }
+        self.latest_evidence_version: str | None = None
         self.warnings: list[str] = []
 
     def _add_warning(self, msg: str) -> None:
@@ -251,6 +252,8 @@ class AgentTools:
         args = {"as_of": effective_as_of}
         try:
             res = self.repo.list_impacts(effective_as_of)
+            if res.get("evidence_version"):
+                self.latest_evidence_version = res["evidence_version"]
             impacts = res.get("impacts", [])
             evidence_ids = [imp.get("commitment_id", "") for imp in impacts if "commitment_id" in imp]
             for imp in impacts:
@@ -275,6 +278,8 @@ class AgentTools:
         args = {"commitment_id": commitment_id, "as_of": effective_as_of}
         try:
             impact = self.repo.get_evidence(commitment_id, effective_as_of)
+            if impact.get("evidence_version"):
+                self.latest_evidence_version = impact["evidence_version"]
             citations = impact.get("citations", [])
             evidence_ids = [c.get("source_id", "") for c in citations if "source_id" in c]
             self.accumulated_evidence["impacts"][commitment_id] = impact
@@ -295,6 +300,8 @@ class AgentTools:
         args = {"commitment_id": commitment_id, "as_of": effective_as_of}
         try:
             res = self.repo.get_owners(commitment_id, effective_as_of)
+            if res.get("evidence_version"):
+                self.latest_evidence_version = res["evidence_version"]
             evidence_ids = []
             eng = res.get("engineering_owner")
             if eng and "id" in eng:
@@ -316,6 +323,8 @@ class AgentTools:
         args = {"work_item_id": work_item_id}
         try:
             res = self.repo.get_history(work_item_id)
+            if res.get("evidence_version"):
+                self.latest_evidence_version = res["evidence_version"]
             forecasts = res.get("forecasts", [])
             evidence_ids = []
             for fc in forecasts:
@@ -340,6 +349,8 @@ class AgentTools:
         if source_id in self.accumulated_evidence["sources"]:
             cached = self.accumulated_evidence["sources"][source_id]
             if cached.get("body"):
+                self._check_budget("get_source")
+                self._record_call("get_source", {"source_id": source_id}, [source_id], "ok")
                 return cached
 
         self._check_budget("get_source")
@@ -365,6 +376,7 @@ class AgentTools:
         based_on_decision_ids: list[str],
     ) -> Draft:
         """Create a structured follow-up draft grounded in tool evidence."""
+        self._check_budget("draft_followup")
         args = {
             "kind": kind,
             "commitment_id": commitment_id,
