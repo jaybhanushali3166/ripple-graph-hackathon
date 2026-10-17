@@ -11,7 +11,7 @@ from backend.app.api.history import router as history_router
 from backend.app.api.impacts import router as impacts_router
 from backend.app.api.sources import router as sources_router
 
-api_router = APIRouter(prefix="/api")
+api_router = APIRouter()
 
 api_router.include_router(health_router, tags=["health"])
 api_router.include_router(impacts_router, tags=["impacts"])

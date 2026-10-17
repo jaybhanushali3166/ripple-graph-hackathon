@@ -1,0 +1,29 @@
+"""Pytest configuration and test environment setup."""
+
+import pytest
+from backend.app.graph.client import GraphClient
+from backend.app.graph.errors import GraphUnavailable
+from backend.app.settings import get_settings
+
+
+def is_falkordb_reachable() -> bool:
+    try:
+        client = GraphClient()
+        client.ping()
+        return True
+    except (GraphUnavailable, Exception):
+        return False
+
+
+@pytest.fixture(autouse=True)
+def configure_test_environment(monkeypatch):
+    """If FalkorDB is not reachable, default offline tests to DEV_MOCKS=True.
+    
+    When FalkorDB is running, DEV_MOCKS=False runs against the live database.
+    """
+    if not is_falkordb_reachable():
+        monkeypatch.setenv("DEV_MOCKS", "true")
+        get_settings.cache_clear()
+    else:
+        monkeypatch.setenv("DEV_MOCKS", "false")
+        get_settings.cache_clear()

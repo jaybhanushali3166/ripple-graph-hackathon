@@ -158,7 +158,7 @@ def test_get_impacts_updated_cutover_to_revision_2():
     # Confirm a decision to advance revision to 2
     preview_res = client.post(
         "/api/decisions/preview",
-        json={"text": "Approved: permissions service moves to Oct 28. Owner: Priya."},
+        json={"text": "Approved: permissions service moves to October 28, 2026. Owner: Priya."},
     )
     p_data = preview_res.json()
     confirm_res = client.post(

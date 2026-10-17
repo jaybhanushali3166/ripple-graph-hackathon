@@ -269,7 +269,7 @@ def test_action_version_provenance_preserved():
     # Bump knowledge revision to rev_2 via decision confirm
     p_data = client.post(
         "/api/decisions/preview",
-        json={"text": "Approved: permissions service moves to Oct 28. Owner: Priya."},
+        json={"text": "Approved: permissions service delivery moves from October 21, 2026 to October 28, 2026. Owner: Priya."},
     ).json()
     c_res = client.post(
         "/api/decisions/confirm",

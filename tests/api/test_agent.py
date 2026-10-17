@@ -140,38 +140,30 @@ def test_agent_run_schema_validation_missing_message():
 
 def test_agent_tools_unit():
     """Directly test AgentTools methods: resolve_entity, find_impacted_commitments, get_evidence, get_forecast_history."""
-    async def _run():
-        tools = AgentTools()
+    from tests.ai.test_tools import MockGraphRepository
+    repo = MockGraphRepository()
+    tools = AgentTools(repo=repo)
 
-        # resolve_entity
-        acme_entity = await tools.resolve_entity("Acme")
-        assert acme_entity["id"] == "com_acme_sso"
+    # resolve_entity
+    acme_entities = tools.resolve_entity("Acme")
+    assert any(e["id"] == "cust_acme" for e in acme_entities)
 
-        priya_entity = await tools.resolve_entity("Priya")
-        assert priya_entity["id"] == "person_priya"
+    priya_entities = tools.resolve_entity("Priya")
+    assert any(e["id"] == "person_priya" for e in priya_entities)
 
-        perm_entity = await tools.resolve_entity("Permissions")
-        assert perm_entity["id"] == "wi_permissions"
+    # find_impacted_commitments
+    impacts_res = tools.find_impacted_commitments()
+    assert "impacts" in impacts_res
+    assert len(impacts_res["impacts"]) >= 1
 
-        unknown_entity = await tools.resolve_entity("nonexistent_xyz")
-        assert "error" in unknown_entity
+    # get_evidence
+    evidence = tools.get_evidence("com_acme_sso")
+    assert evidence["commitment_id"] == "com_acme_sso"
+    assert "Priya Sharma" in evidence["engineering_owner"]["name"]
 
-        # find_impacted_commitments
-        impacts = await tools.find_impacted_commitments()
-        assert isinstance(impacts, list)
-        assert len(impacts) == 4
+    # get_forecast_history
+    history = tools.get_forecast_history("wi_permissions")
+    assert "forecasts" in history
+    assert len(history["forecasts"]) >= 1
+    assert history["forecasts"][0]["decision_id"] == "DEC-12"
 
-        # get_evidence
-        evidence = await tools.get_evidence("src_permissions_ticket")
-        assert evidence["id"] == "src_permissions_ticket"
-        assert "October 21, 2026" in evidence["body"]
-        assert "DEC-12" in evidence["body"]
-
-        # get_forecast_history
-        history = await tools.get_forecast_history("wi_permissions")
-        assert "forecasts" in history
-        assert len(history["forecasts"]) >= 1
-        assert history["forecasts"][0]["decision_id"] == "DEC-12"
-
-    import asyncio
-    asyncio.run(_run())

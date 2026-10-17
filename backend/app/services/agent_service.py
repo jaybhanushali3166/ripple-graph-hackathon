@@ -1,218 +1,142 @@
 """Agent orchestration service supporting two bounded question types: impact/owners and lineage."""
 
 import asyncio
-import json
 import logging
-import os
 import time
-import uuid
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
-from backend.app.errors import AIUnavailableError, StaleVersionError
+from backend.app.ai.agent import _default_tool_step_handler, run_agent
+from backend.app.ai.tools import AgentTools
+from backend.app.ai.provider import (
+    DeterministicTestDouble,
+    LLMProvider,
+    get_provider,
+)
+from backend.app.graph.errors import StaleEvidence
 from backend.app.schemas import (
     AgentResponse,
     AgentRunRequest,
+    Completeness,
     Draft,
     SourceRef,
     ToolTraceItem,
 )
-from backend.app.services.demo_service import (
-    get_active_evidence_version,
-    validate_expected_version,
-)
+from backend.app.services.demo_service import get_active_evidence_version
 from backend.app.services.graph_client import get_graph_repository
-from backend.app.services.impact_service import ImpactService
-from backend.app.services.source_service import SourceService
 from backend.app.settings import get_settings
 
 logger = logging.getLogger("ripple.agent_service")
 
 
-def _load_canonical_agent_response() -> Optional[Dict[str, Any]]:
-    payloads_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-        "docs",
-        "examples",
-        "canonical_payloads.json",
-    )
-    if os.path.exists(payloads_path):
-        try:
-            with open(payloads_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            return data.get("agent_response")
-        except Exception as exc:
-            logger.warning("Could not load agent_response from canonical_payloads.json: %s", exc)
-    return None
-
-
-class AgentTools:
-    """Read-only tool harness passed to agent executor."""
-
-    def __init__(self):
-        self.impact_service = ImpactService()
-        self.source_service = SourceService()
-
-    async def resolve_entity(self, query: str) -> Dict[str, Any]:
-        """Resolve entity name or alias to canonical ID."""
-        repo = get_graph_repository()
-        if repo and hasattr(repo, "resolve_entity"):
-            return await asyncio.to_thread(repo.resolve_entity, query)
-
-        query_lower = query.lower()
-        if "acme" in query_lower:
-            return {"id": "com_acme_sso", "kind": "commitment", "title": "Single Sign-On Integration"}
-        if "birch" in query_lower:
-            return {"id": "com_birch_audit", "kind": "commitment", "title": "Audit Log Export Service"}
-        if "cedar" in query_lower:
-            return {"id": "com_cedar_export", "kind": "commitment", "title": "Custom Data Export Pipeline"}
-        if "delta" in query_lower:
-            return {"id": "com_delta_sso", "kind": "commitment", "title": "Enterprise SSO Deployment"}
-        if "permission" in query_lower:
-            return {"id": "wi_permissions", "kind": "component", "title": "Permissions Service"}
-        if "priya" in query_lower:
-            return {"id": "person_priya", "kind": "person", "name": "Priya Sharma"}
-        return {"error": f"Unknown entity '{query}'"}
-
-    async def find_impacted_commitments(self, as_of: Optional[int] = None) -> List[Dict[str, Any]]:
-        """List current commitment impacts with date conflicts and blockers."""
-        impacts_resp = await self.impact_service.get_impacts(as_of)
-        return [imp.model_dump() for imp in impacts_resp.impacts]
-
-    async def get_evidence(self, source_id: str) -> Dict[str, Any]:
-        """Fetch raw source document text and metadata."""
-        src = await self.source_service.get_source(source_id)
-        return src.model_dump()
-
-    async def get_forecast_history(self, work_item_id: str) -> Dict[str, Any]:
-        """Fetch forecast history and establishing decisions for a work item."""
-        hist = await self.source_service.get_history(work_item_id)
-        return hist.model_dump()
-
-
 class AgentService:
     """Service orchestrating agent runs with bounded question classification and tool tracing."""
 
-    def __init__(self):
-        self.tools = AgentTools()
-
     async def run_agent(self, request: AgentRunRequest) -> AgentResponse:
         """Execute agent analysis under strict version validation and bounded tool access."""
-        run_id = f"run_{uuid.uuid4().hex[:12]}"
-        start_version = request.expected_version
+        repo = get_graph_repository()
+        now_ms = int(time.time() * 1000)
+        settings = get_settings()
 
-        # 1. Validate incoming expected_version
-        validate_expected_version(start_version)
+        if repo is not None:
+            # 1. Version check before starting
+            current_version = repo.get_version()
+            if request.expected_version != current_version:
+                raise StaleEvidence(
+                    f"evidence version is {current_version}, not {request.expected_version}",
+                    details={"current_version": current_version},
+                )
 
-        # 2. Try calling Abhijeet's dynamic agent if available
-        try:
-            from backend.app.agent.orchestrator import run_agent as abhijeet_run_agent  # type: ignore
-            raw_result = await abhijeet_run_agent(
-                message=request.message,
-                commitment_id=request.commitment_id,
-                expected_version=start_version,
-                tools=self.tools,
+            # 2. Configure provider
+            if settings.llm_api_key:
+                provider: LLMProvider = get_provider(
+                    api_key=settings.llm_api_key,
+                    model=settings.llm_model,
+                )
+            else:
+                provider = DeterministicTestDouble(tool_step_handler=_default_tool_step_handler)
+
+            # 3. Execute bounded agent orchestrator with repo as tools
+            response = await run_agent(
+                request=request,
+                tools=repo,
+                provider=provider,
+                now_ms=now_ms,
             )
-            # 3. Post-execution version verification
-            validate_expected_version(start_version)
 
-            if isinstance(raw_result, dict):
-                return AgentResponse(**raw_result)
-            return raw_result
+            # 4. Spec requirement: Recheck version before returning drafts
+            post_run_version = repo.get_version()
+            if post_run_version != current_version:
+                logger.warning(
+                    "Evidence version changed during agent run from %s to %s; invalidating drafts.",
+                    current_version,
+                    post_run_version,
+                )
+                response.drafts = []
+                response.status = "partial"
+                response.warnings.append(
+                    f"Evidence version moved to '{post_run_version}' during reasoning; drafts invalidated."
+                )
 
-        except StaleVersionError:
-            raise
-        except (ImportError, AttributeError):
-            logger.debug("Abhijeet's run_agent orchestrator not yet linked; using canonical bounded responder.")
-        except Exception as exc:
-            logger.error("Agent execution error: %s", exc)
-            settings = get_settings()
-            if not settings.dev_mocks:
-                raise AIUnavailableError(f"AI agent provider failed: {exc}") from exc
+            return response
 
-        # 4. Canonical Fallback Responder (2 Bounded Question Types)
-        message = request.message.lower()
+        # Mock fallback (only when repo is None / DEV_MOCKS=True)
         active_version = get_active_evidence_version()
-
-        # Build realistic tool trace based on question type
-        tool_trace: List[ToolTraceItem] = []
-        citations: List[SourceRef] = []
-        drafts: List[Draft] = []
-        answer: str = ""
-
-        is_lineage_query = any(k in message for k in ("why", "lineage", "history", "previous", "earlier", "dec-12", "replaces"))
-
-        if is_lineage_query:
-            # Question Type 2: Forecast / Decision Lineage
-            tool_trace.append(
-                ToolTraceItem(
-                    tool="get_forecast_history",
-                    arguments={"work_item_id": "wi_permissions"},
-                    evidence_ids=["fc_permissions_baseline", "DEC-12", "DEC-13"],
-                    status="ok",
-                )
+        if request.expected_version != active_version:
+            raise StaleEvidence(
+                f"Provided expected_version '{request.expected_version}' is stale. Active evidence version is {active_version}.",
+                details={"current_version": active_version},
             )
-            tool_trace.append(
-                ToolTraceItem(
-                    tool="get_evidence",
-                    arguments={"source_id": "src_permissions_ticket"},
-                    evidence_ids=["src_permissions_ticket"],
-                    status="ok",
-                )
+
+        is_lineage = any(k in request.message.lower() for k in ["lineage", "dec-12", "why", "shift"])
+        if is_lineage:
+            answer = (
+                "The permissions forecast changed from DEC-12 to DEC-13. "
+                "Delivery moves from October 21, 2026 to October 28, 2026. "
+                "Responsible engineering owner: Priya Sharma."
             )
             citations = [
                 SourceRef(
                     source_id="src_permissions_ticket",
-                    quote="delivery moves from October 21, 2026 to October 28, 2026. Owner: Priya. This replaces decision DEC-12.",
+                    quote="Forecast: permissions service available October 21, 2026 (see DEC-12).",
                 ),
                 SourceRef(
                     source_id="src_dec12",
-                    quote="Decision DEC-12: Permissions service delivery scheduled for October 21, 2026. Owner: Priya.",
+                    quote="The permissions service will be delivered by October 21, 2026. Owner: Priya.",
                 ),
             ]
-            answer = (
-                "The Permissions Service delivery was originally accepted for October 21, 2026 under decision DEC-12. "
-                "Under ticket src_permissions_ticket, engineering confirmed delivery shifted to October 28, 2026 (superseding DEC-12). "
-                "This 7-day cutover creates a date conflict for downstream commitments requiring permissions prior to October 28."
-            )
+            tool_trace = [
+                ToolTraceItem(
+                    tool="get_forecast_history",
+                    arguments={"work_item_id": "wi_permissions"},
+                    evidence_ids=["DEC-12", "DEC-13"],
+                    status="ok",
+                ),
+                ToolTraceItem(
+                    tool="get_source",
+                    arguments={"source_id": "src_permissions_ticket"},
+                    evidence_ids=["src_permissions_ticket"],
+                    status="ok",
+                ),
+            ]
             drafts = [
                 Draft(
                     kind="internal_escalation",
                     commitment_id=request.commitment_id or "com_acme_sso",
                     assignee_id="person_priya",
-                    body=(
-                        "Hi Priya, confirming the lineage on wi_permissions: DEC-12 established October 21 delivery, "
-                        "which has moved to October 28. Could we review potential staging or partial cutover?"
-                    ),
-                    citations=citations,
-                    based_on_decision_ids=["DEC-12", "DEC-13"],
+                    body="Permissions delivery has shifted from October 21 to October 28, impacting customer milestones.",
+                    citations=[
+                        SourceRef(
+                            source_id="src_permissions_ticket",
+                            quote="delivery moves from October 21, 2026 to October 28, 2026",
+                        )
+                    ],
+                    based_on_decision_ids=["DEC-12"],
                 )
             ]
-
         else:
-            # Question Type 1: Affected Promises & Owners
-            tool_trace.append(
-                ToolTraceItem(
-                    tool="resolve_entity",
-                    arguments={"query": request.commitment_id or "Acme Corp"},
-                    evidence_ids=["com_acme_sso"],
-                    status="ok",
-                )
-            )
-            tool_trace.append(
-                ToolTraceItem(
-                    tool="find_impacted_commitments",
-                    arguments={"as_of": int(time.time() * 1000)},
-                    evidence_ids=["com_acme_sso", "com_birch_audit"],
-                    status="ok",
-                )
-            )
-            tool_trace.append(
-                ToolTraceItem(
-                    tool="get_evidence",
-                    arguments={"source_id": "src_acme_handoff"},
-                    evidence_ids=["src_acme_handoff"],
-                    status="ok",
-                )
+            answer = (
+                "Commitment com_acme_sso for customer Acme Corp is in date conflict due to permissions service delay. "
+                "Accountable engineering owner is Priya Sharma. Account owner is Maya Lin."
             )
             citations = [
                 SourceRef(
@@ -221,45 +145,60 @@ class AgentService:
                 ),
                 SourceRef(
                     source_id="src_acme_handoff",
-                    quote="Acme SSO integration deadline agreed for October 23, 2026",
+                    quote="Commitment: Enterprise SSO delivered by October 23, 2026.",
                 ),
             ]
-            answer = (
-                "Acme Corp's Enterprise SSO commitment (due October 23, 2026) has an active date conflict. "
-                "Its dependency chain relies on Permissions Service (wi_permissions), which moved to October 28, 2026. "
-                "Per Review R1 owner resolution rules, engineering owner is resolved to Priya Sharma (blocking component owner), "
-                "and account lead is Maya Lin."
-            )
+            tool_trace = [
+                ToolTraceItem(
+                    tool="resolve_entity",
+                    arguments={"query": "Acme", "kind": "customer"},
+                    evidence_ids=["cust_acme"],
+                    status="ok",
+                ),
+                ToolTraceItem(
+                    tool="find_impacted_commitments",
+                    arguments={},
+                    evidence_ids=["com_acme_sso", "com_birch_audit"],
+                    status="ok",
+                ),
+                ToolTraceItem(
+                    tool="get_evidence",
+                    arguments={"commitment_id": "com_acme_sso"},
+                    evidence_ids=["src_permissions_ticket"],
+                    status="ok",
+                ),
+            ]
             drafts = [
                 Draft(
                     kind="internal_escalation",
                     commitment_id="com_acme_sso",
                     assignee_id="person_priya",
-                    body=(
-                        "Priya: Acme SSO is promised for October 23, 2026, but wi_permissions delivery is scheduled for "
-                        "October 28, 2026. We need to align on an expedited release or staging patch."
-                    ),
-                    citations=citations,
-                    based_on_decision_ids=["DEC-13"],
+                    body="Priya: Acme SSO is promised for Oct 23. The permissions service delay to Oct 28 causes a date conflict.",
+                    citations=[
+                        SourceRef(
+                            source_id="src_permissions_ticket",
+                            quote="delivery moves from October 21, 2026 to October 28, 2026",
+                        )
+                    ],
+                    based_on_decision_ids=["DEC-12"],
                 ),
                 Draft(
                     kind="customer_update",
                     commitment_id="com_acme_sso",
                     assignee_id="person_maya",
-                    body=(
-                        "Hi Maya, please be advised that our permissions architecture update impacts our October 23 target "
-                        "for Acme SSO. Engineering is targeting October 28 delivery."
-                    ),
-                    citations=citations,
-                    based_on_decision_ids=["DEC-13"],
+                    body="Acme Corp update: Enterprise SSO integration timeline is currently being reviewed with engineering.",
+                    citations=[
+                        SourceRef(
+                            source_id="src_acme_handoff",
+                            quote="Commitment: Enterprise SSO delivered by October 23, 2026.",
+                        )
+                    ],
+                    based_on_decision_ids=["DEC-12"],
                 ),
             ]
 
-        # 5. Final check on evidence_version to ensure no mid-run race
-        validate_expected_version(start_version)
-
         return AgentResponse(
-            run_id=run_id,
+            run_id=f"run_mock_{int(time.time() * 1000)}",
             evidence_version=active_version,
             status="complete",
             answer=answer,

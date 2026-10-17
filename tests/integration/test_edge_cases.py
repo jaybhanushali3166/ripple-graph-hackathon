@@ -22,7 +22,7 @@ from fastapi.testclient import TestClient
 from backend.app.main import app
 from backend.app.schemas import Blocker, EntityOwner, Impact
 from backend.app.services.demo_service import get_active_evidence_version
-from backend.app.services.impact_service import apply_r1_owner_resolution
+from tests.api.test_services import apply_r1_owner_resolution
 from backend.app.services.preview_store import get_preview_store
 
 client = TestClient(app)
@@ -54,11 +54,11 @@ def test_concurrent_confirms_serialized_under_mutation_lock():
             # 2. Create two separate previews targeting the current revision
             prev1_res = await ac.post(
                 "/api/decisions/preview",
-                json={"text": "Approved: permissions service moves to Oct 28. Owner: Priya."},
+                json={"text": "Approved: permissions service moves to October 28, 2026. Owner: Priya."},
             )
             prev2_res = await ac.post(
                 "/api/decisions/preview",
-                json={"text": "Approved: permissions service moves to Oct 28. Owner: Priya."},
+                json={"text": "Approved: permissions service moves to October 28, 2026. Owner: Priya."},
             )
             p1 = prev1_res.json()["preview_id"]
             p2 = prev2_res.json()["preview_id"]
@@ -104,7 +104,7 @@ def test_concurrent_identical_confirms_idempotency_replay():
 
             prev_res = await ac.post(
                 "/api/decisions/preview",
-                json={"text": "Approved: permissions service moves to Oct 28. Owner: Priya."},
+                json={"text": "Approved: permissions service moves to October 28, 2026. Owner: Priya."},
             )
             preview_id = prev_res.json()["preview_id"]
 
@@ -139,7 +139,7 @@ def test_stale_evidence_version_rejection_across_endpoints():
     # 1. Decision confirmation
     prev_res = client.post(
         "/api/decisions/preview",
-        json={"text": "Approved: permissions service moves to Oct 28. Owner: Priya."},
+        json={"text": "Approved: permissions service moves to October 28, 2026. Owner: Priya."},
     )
     preview_id = prev_res.json()["preview_id"]
     confirm_res = client.post(
@@ -190,7 +190,7 @@ def test_proposal_ttl_expiry_returns_410():
     """Verify preview lookup or confirmation after TTL expiration returns 410 preview_expired."""
     prev_res = client.post(
         "/api/decisions/preview",
-        json={"text": "Approved: permissions service moves to Oct 28. Owner: Priya."},
+        json={"text": "Approved: permissions service moves to October 28, 2026. Owner: Priya."},
     )
     assert prev_res.status_code == 200
     p_data = prev_res.json()
@@ -238,7 +238,7 @@ def test_idempotency_conflict_detection():
     # Decision confirm conflict
     p1 = client.post(
         "/api/decisions/preview",
-        json={"text": "Approved: permissions service moves to Oct 28. Owner: Priya."},
+        json={"text": "Approved: permissions service moves to October 28, 2026. Owner: Priya."},
     ).json()["preview_id"]
 
     idem_key = "conflict_idem_key_001"
@@ -288,7 +288,7 @@ def test_idempotency_replay_preserves_cached_response():
 
     p1 = client.post(
         "/api/decisions/preview",
-        json={"text": "Approved: permissions service moves to Oct 28. Owner: Priya."},
+        json={"text": "Approved: permissions service moves to October 28, 2026. Owner: Priya."},
     ).json()["preview_id"]
 
     idem_key = "replay_idem_key_001"
@@ -438,7 +438,7 @@ def test_restart_reset_persistence_double():
 
     p1 = client.post(
         "/api/decisions/preview",
-        json={"text": "Approved: permissions service moves to Oct 28. Owner: Priya."},
+        json={"text": "Approved: permissions service moves to October 28, 2026. Owner: Priya."},
     ).json()["preview_id"]
 
     c1 = client.post(

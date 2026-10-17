@@ -1,20 +1,14 @@
 """Demo management and ingestion endpoints for Ripple API."""
 
 from functools import lru_cache
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, Request
-from pydantic import BaseModel
 
 from backend.app.schemas import DemoResetResponse
 from backend.app.services.demo_service import DemoService
 
 router = APIRouter()
-
-
-class IngestRequest(BaseModel):
-    """Payload to trigger synthetic fixture ingestion."""
-    fixtures_path: Optional[str] = None
 
 
 @lru_cache()
@@ -39,13 +33,11 @@ async def reset_demo(
 @router.post("/ingest")
 async def ingest_fixtures(
     request: Request,
-    payload: Optional[IngestRequest] = None,
     demo_service: DemoService = Depends(get_demo_service),
 ):
-    """Ingest deterministic synthetic fixtures into FalkorDB."""
+    """Ingest deterministic synthetic fixtures into FalkorDB from server repository."""
     lock = getattr(request.app.state, "mutation_lock", None)
-    fixtures_path = payload.fixtures_path if payload else None
     if lock:
         async with lock:
-            return await demo_service.ingest_fixtures(fixtures_path)
-    return await demo_service.ingest_fixtures(fixtures_path)
+            return await demo_service.ingest_fixtures()
+    return await demo_service.ingest_fixtures()
