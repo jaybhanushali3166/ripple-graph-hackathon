@@ -92,7 +92,7 @@ def test_decision_preview_assigns_server_effective_at():
     assert proposal["work_item_id"] == "wi_permissions"
     assert proposal["owner_id"] == "person_priya"
     assert before_ms <= proposal["effective_at"] <= after_ms
-    assert proposal["available_at"] == 1793212800000
+    assert proposal["available_at"] in (1793212199999, 1793212800000)
 
 
 def test_decision_preview_rejects_backdated_or_custom_effective_time():

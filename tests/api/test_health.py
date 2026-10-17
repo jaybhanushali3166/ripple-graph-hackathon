@@ -152,7 +152,7 @@ def test_decisions_preview_and_confirm():
     """Verify decision preview assigns effective_at and confirm returns new evidence version."""
     preview_res = client.post(
         "/api/decisions/preview",
-        json={"text": "Approved: permissions service moves to Oct 28. Owner: Priya."},
+        json={"text": "Approved: permissions service delivery moves from October 21, 2026 to October 28, 2026. Owner: Priya."},
     )
     assert preview_res.status_code == 200
     preview_data = preview_res.json()
