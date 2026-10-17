@@ -262,6 +262,20 @@ class GraphRepository:
                                                             "matched_by": "alias"})
         return sorted(found.values(), key=lambda c: (c["kind"], c["id"]))
 
+    # ---- writes (logic lives in writes.py)
+    def _writes(self):
+        from .writes import GraphWrites  # writes imports load_query from this module
+        return GraphWrites(self.client, self.get_version)
+
+    def confirm_decision(self, proposal, source, expected_version, idempotency_key, now_ms=None):
+        return self._writes().confirm_decision(proposal, source, expected_version, idempotency_key, now_ms)
+
+    def save_action(self, action, expected_version, idempotency_key, now_ms=None):
+        return self._writes().save_action(action, expected_version, idempotency_key, now_ms)
+
+    def list_actions(self, commitment_id):
+        return self._writes().list_actions(commitment_id)
+
 
 def _person(owner):
     return {"id": owner["id"], "name": owner["name"]} if owner else None

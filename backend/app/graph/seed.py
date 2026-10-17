@@ -235,7 +235,7 @@ def _edge_statements(data):
 def write_graph(client, data):
     """Wipe the client's graph and load data. Returns the new dataset_id."""
     client.delete_graph()
-    for label in NODE_LABELS + ["GraphState"]:
+    for label in NODE_LABELS + ["GraphState", "Action", "RequestRecord"]:
         client.write("CREATE INDEX FOR (n:%s) ON (n.id)" % label)
     for label, rows in _node_rows(data).items():
         if rows:
