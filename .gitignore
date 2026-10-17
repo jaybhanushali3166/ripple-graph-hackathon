@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.egg-info/
+*.egg
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Operating system
+.DS_Store
+Thumbs.db
+
+# Node / Frontend
+node_modules/
+dist/
+build/
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.coverage.*
+.ruff_cache/
+
+# IDE / Editors
+.idea/
+.vscode/
+*.swp
+*.swo
