@@ -283,8 +283,8 @@ class SafeReseedTests(RepositoryTestCase):
 
     def graphs(self):
         from falkordb import FalkorDB
-        c = self.client
-        return set(FalkorDB(host=c.host, port=c.port, password=c.password).list_graphs())
+        # Same connection settings as the client (username, TLS), not just host/port/password.
+        return set(FalkorDB(**self.client._connection_options()).list_graphs())
 
     def assert_untouched(self):
         self.assertEqual(self.workspace(), self.before)
