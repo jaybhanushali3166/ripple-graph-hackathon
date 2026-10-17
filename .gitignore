@@ -24,7 +24,6 @@ Thumbs.db
 
 # Node / Frontend
 node_modules/
-dist/
 build/
 
 # Testing and coverage
