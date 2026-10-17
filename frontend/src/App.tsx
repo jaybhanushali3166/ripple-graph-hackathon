@@ -18,7 +18,11 @@ export default function App() {
   const [decisionLocked, setDecisionLocked] = useState(false), [actionLocked, setActionLocked] = useState(false);
   const [verifiedContext, setVerifiedContext] = useState<string | null>(null);
   const [draftDirty, setDraftDirty] = useState(false);
+  const [invalidatedVersion, setInvalidatedVersion] = useState<string | null>(null);
+  const [queuedStaleRefresh, setQueuedStaleRefresh] = useState<string | null>(null);
   const [changedCommitmentIds, setChangedCommitmentIds] = useState<Set<string>>(new Set());
+  // Survives grid unmounts, selection changes, and refreshes of the same evidence.
+  const actionRefreshVersions = useRef<Set<string>>(new Set());
   const preConfirmStatuses = useRef<Map<string, string>>(new Map());
   const awaitingConfirmHighlight = useRef(false);
   const sourceTrigger = useRef<HTMLElement | null>(null);
@@ -37,16 +41,49 @@ export default function App() {
   const refresh = useCallback((message = '') => {
     setSource(null);
     setNotice(message);
+    setInvalidatedVersion(null);
+    setQueuedStaleRefresh(null);
+    setChangedCommitmentIds(new Set());
     workspace.refresh();
-  }, [workspace]);
+  }, [workspace.refresh]);
+
+  const canDiscardDraft = useCallback(() => !draftDirty || window.confirm(
+    'You have unsaved draft edits. This action can discard them. Continue?',
+  ), [draftDirty]);
+
+  function requestRefresh(message = '') {
+    if (locked) return;
+    if (canDiscardDraft()) refresh(message);
+  }
 
   function handleUserRefresh() {
-    if (draftDirty) {
-      const proceed = window.confirm('You have an in-progress draft edit. Refreshing the workspace will discard your edits. Do you want to continue?');
-      if (!proceed) return;
-    }
-    refresh();
+    requestRefresh();
   }
+
+  function handleStale(message: string) {
+    setInvalidatedVersion(workspace.data?.evidence_version ?? null);
+    setNotice(message);
+    setQueuedStaleRefresh(message);
+  }
+
+  function handleActionsStale() {
+    const currentVersion = workspace.data?.evidence_version;
+    if (!currentVersion) return;
+    const message = 'Saved actions and commitments report different evidence. Refresh and review before saving.';
+    setInvalidatedVersion(currentVersion);
+    setNotice(message);
+    if (actionRefreshVersions.current.has(currentVersion)) return;
+    actionRefreshVersions.current.add(currentVersion);
+    setQueuedStaleRefresh(message);
+  }
+
+  // Never unmount a panel holding an unresolved mutation key. After a definitive
+  // result unlocks it, refresh once, with the same unsaved-edit protection.
+  useEffect(() => {
+    if (!queuedStaleRefresh || locked) return;
+    setQueuedStaleRefresh(null);
+    if (canDiscardDraft()) refresh(queuedStaleRefresh);
+  }, [queuedStaleRefresh, locked, canDiscardDraft, refresh]);
 
   function handleConfirmed() {
     awaitingConfirmHighlight.current = true;
@@ -60,17 +97,21 @@ export default function App() {
       const newlyChanged = new Set<string>();
       for (const impact of workspace.data.impacts) {
         const prevStatus = preConfirmStatuses.current.get(impact.commitment_id);
-        if (prevStatus && prevStatus !== impact.status) {
+        if (prevStatus && prevStatus !== 'date_conflict' && impact.status === 'date_conflict') {
           newlyChanged.add(impact.commitment_id);
         }
       }
       if (newlyChanged.size > 0) {
         setChangedCommitmentIds(newlyChanged);
-        const timer = setTimeout(() => setChangedCommitmentIds(new Set()), 5000);
-        return () => clearTimeout(timer);
       }
     }
   }, [workspace.data]);
+
+  useEffect(() => {
+    if (changedCommitmentIds.size === 0) return;
+    const timer = setTimeout(() => setChangedCommitmentIds(new Set()), 5000);
+    return () => clearTimeout(timer);
+  }, [changedCommitmentIds]);
 
   const version = workspace.data?.evidence_version ?? null;
   const conflicts = workspace.data?.impacts.filter(impact => impact.status === 'date_conflict').length ?? 0;
@@ -80,7 +121,7 @@ export default function App() {
       <a className="skip-link" href="#workspace">Skip to commitments</a>
       {demoEnabled && DemoControls && (
         <Suspense>
-          <DemoControls disabled={locked} onChange={() => refresh()} />
+          <DemoControls disabled={locked} onBeforeChange={canDiscardDraft} onChange={() => refresh()} />
         </Suspense>
       )}
       <div className="app-shell">
@@ -121,10 +162,12 @@ export default function App() {
             <DecisionReviewDialog
               version={version}
               impacts={workspace.data?.impacts}
-              disabled={!version || actionLocked}
+              disabled={!version || actionLocked || invalidatedVersion === version}
+              externalPending={actionLocked}
+              onBeforeOpen={canDiscardDraft}
               onLock={onDecisionLock}
               onConfirmed={handleConfirmed}
-              onStale={() => refresh('The evidence changed. Review current facts before submitting again.')}
+              onStale={() => handleStale('The evidence changed. Review current facts before submitting again.')}
             />
           </div>
         </div>
@@ -166,7 +209,12 @@ export default function App() {
                 selectedId={workspace.selected.commitment_id}
                 changedIds={changedCommitmentIds}
                 disabled={locked}
-                onSelect={id => { if (!locked) { setSource(null); workspace.select(id); } }}
+                onSelect={id => {
+                  if (!locked && (id === workspace.selected?.commitment_id || canDiscardDraft())) {
+                    setSource(null);
+                    workspace.select(id);
+                  }
+                }}
               />
               <CommitmentDetail
                 key={`${version}:${workspace.selected.commitment_id}`}
@@ -174,18 +222,19 @@ export default function App() {
                 version={version!}
                 asOf={workspace.data.as_of}
                 onSource={openSource}
-                onRefresh={() => refresh()}
+                onRefresh={handleUserRefresh}
                 onEvidenceReady={onEvidenceReady}
               />
               <FollowUpPanel
                 key={`followup:${version}:${workspace.selected.commitment_id}`}
                 impact={workspace.selected}
                 version={version!}
-                evidenceReady={verifiedContext === `${version}:${workspace.selected.commitment_id}`}
+                evidenceReady={invalidatedVersion !== version && verifiedContext === `${version}:${workspace.selected.commitment_id}`}
                 onSource={openSource}
                 onLock={onActionLock}
                 onDraftDirty={onDraftDirty}
-                onStale={() => refresh('The evidence changed. Earlier drafts are invalid; generate a fresh answer.')}
+                onStale={() => handleStale('The evidence changed. Review the latest facts before saving this draft.')}
+                onActionsStale={handleActionsStale}
               />
             </>
           )}

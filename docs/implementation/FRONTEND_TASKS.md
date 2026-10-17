@@ -25,3 +25,12 @@ Backend models, kickoff JSON examples, and live endpoints are not present in thi
 Live graph/model behavior, backend restart persistence, another valid delivery date, overlapping confirmations, and the graph edge-removal proof remain **unverified** until the backend handoff. No deployment or external message sending was performed.
 
 Run instructions: [frontend README](../../frontend/README.md). Recording flow: [demo script](../demo-script.md).
+
+## PR #2 re-review fixes — October 17, 2026
+
+- Keep the automatic Action-version refresh guard in `App`, outside the grid that unmounts during a reload. Persistent disagreement refreshes once per displayed evidence version, then remains visible with saving disabled.
+- Resolve uncertain confirmations and Action saves by replaying their exact stored payload and idempotency key. A changed version or an older Action with matching text does not establish success. Only the mutation endpoint's successful result marks the operation complete.
+- Closing an uncertain decision review preserves its pending attempt and lets it be reopened. Explicit abandonment requires a duplicate-risk acknowledgement and is unavailable during an in-flight request. Stale refreshes wait for unresolved mutations, preserving their retry keys.
+- Highlight only transitions into `date_conflict`; clear on refresh and expire on a timer independent of impact reads.
+- Protect edited drafts during selection, detail/header refresh, fixture changes, and stale refreshes. If a stale refresh is declined, retain the text while disabling stale submissions. Explain wrong-commitment draft routing explicitly.
+- Validation: 41 tests across nine files pass, including actual App/grid remount regressions, repeated unknown-outcome checks, close/reopen replay, pending-request protection, and highlight expiry/resolution. TypeScript and production build pass. Live backend replay/durability verification remains pending.

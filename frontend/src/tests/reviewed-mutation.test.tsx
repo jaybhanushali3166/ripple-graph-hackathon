@@ -35,4 +35,20 @@ describe('reviewed mutations', () => {
     await act(async () => { await result.current.run({ idempotency_key: 'fresh-key', body: 'Fresh' }); });
     expect(submit).toHaveBeenNthCalledWith(2, { idempotency_key: 'fresh-key', body: 'Fresh' });
   });
+  it('cannot abandon an in-flight replay and lose the original idempotency key', async () => {
+    let rejectReplay!: (error: ApiError) => void;
+    const submit = vi.fn()
+      .mockRejectedValueOnce(new ApiError(0, 'network_error', 'Unknown'))
+      .mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectReplay = reject; }))
+      .mockResolvedValueOnce({ id: 'recorded' });
+    const { result } = renderHook(() => useReviewedMutation(submit));
+    const original = { idempotency_key: 'original-key', body: 'Reviewed' };
+    await act(async () => { await result.current.run(original).catch(() => {}); });
+    let retry!: Promise<unknown>;
+    act(() => { retry = result.current.retry().catch(() => {}); });
+    act(() => { expect(result.current.abandon()).toBe(false); });
+    await act(async () => { rejectReplay(new ApiError(503, 'graph_unavailable', 'Still unknown')); await retry; });
+    await act(async () => { await result.current.retry(); });
+    expect(submit).toHaveBeenNthCalledWith(3, original);
+  });
 });
