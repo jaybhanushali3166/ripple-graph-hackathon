@@ -1,0 +1,38 @@
+{
+  "description": "Seeded Harbor baseline: no date conflict for any commitment. Engineering owner is the owner of the required root work item because there is no blocker.",
+  "as_of": "2026-10-17T10:00:00+05:30",
+  "impacts": {
+    "com_acme_sso": {
+      "customer_id": "cust_acme",
+      "status": "no_detected_conflict",
+      "blocker_work_item_ids": [],
+      "engineering_owner_id": "person_lena",
+      "account_owner_id": "person_maya",
+      "warnings": []
+    },
+    "com_birch_audit": {
+      "customer_id": "cust_birch",
+      "status": "no_detected_conflict",
+      "blocker_work_item_ids": [],
+      "engineering_owner_id": "person_omar",
+      "account_owner_id": "person_nisha",
+      "warnings": []
+    },
+    "com_cedar_export": {
+      "customer_id": "cust_cedar",
+      "status": "no_detected_conflict",
+      "blocker_work_item_ids": [],
+      "engineering_owner_id": "person_eli",
+      "account_owner_id": "person_leo",
+      "warnings": []
+    },
+    "com_delta_sso": {
+      "customer_id": "cust_delta",
+      "status": "no_detected_conflict",
+      "blocker_work_item_ids": [],
+      "engineering_owner_id": "person_lena",
+      "account_owner_id": "person_noah",
+      "warnings": []
+    }
+  }
+}

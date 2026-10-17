@@ -1,0 +1,188 @@
+{
+  "id": "scn_chain_too_deep",
+  "description": "Cedar's path becomes wi_export -> worker -> deep_1..deep_4, five DEPENDS_ON hops: truncated at four, so needs_verification.",
+  "base": "harbor_baseline",
+  "added_sources": [
+    {
+      "id": "src_scn_deep_chain",
+      "type": "doc",
+      "title": "Scenario: deep dependency chain",
+      "source_timestamp": "2026-10-02T09:00:00+05:30",
+      "body": "SCENARIO NOTE - deep chain\nItem wi_export_worker depends on item wi_deep_1.\nItem wi_deep_1 depends on item wi_deep_2.\nItem wi_deep_2 depends on item wi_deep_3.\nItem wi_deep_3 depends on item wi_deep_4.\nAll deep chain items are forecast for October 18, 2026.\n"
+    }
+  ],
+  "operations": [
+    {
+      "op": "add_work_item",
+      "work_item": {
+        "id": "wi_deep_1",
+        "name": "Deep chain item 1",
+        "kind": "component"
+      }
+    },
+    {
+      "op": "add_work_item",
+      "work_item": {
+        "id": "wi_deep_2",
+        "name": "Deep chain item 2",
+        "kind": "component"
+      }
+    },
+    {
+      "op": "add_work_item",
+      "work_item": {
+        "id": "wi_deep_3",
+        "name": "Deep chain item 3",
+        "kind": "component"
+      }
+    },
+    {
+      "op": "add_work_item",
+      "work_item": {
+        "id": "wi_deep_4",
+        "name": "Deep chain item 4",
+        "kind": "component"
+      }
+    },
+    {
+      "op": "add_relationship",
+      "relationship": {
+        "type": "DEPENDS_ON",
+        "from_id": "wi_export_worker",
+        "to_id": "wi_deep_1",
+        "source_id": "src_scn_deep_chain",
+        "quote": "Item wi_export_worker depends on item wi_deep_1."
+      }
+    },
+    {
+      "op": "add_relationship",
+      "relationship": {
+        "type": "DEPENDS_ON",
+        "from_id": "wi_deep_1",
+        "to_id": "wi_deep_2",
+        "source_id": "src_scn_deep_chain",
+        "quote": "Item wi_deep_1 depends on item wi_deep_2."
+      }
+    },
+    {
+      "op": "add_relationship",
+      "relationship": {
+        "type": "DEPENDS_ON",
+        "from_id": "wi_deep_2",
+        "to_id": "wi_deep_3",
+        "source_id": "src_scn_deep_chain",
+        "quote": "Item wi_deep_2 depends on item wi_deep_3."
+      }
+    },
+    {
+      "op": "add_relationship",
+      "relationship": {
+        "type": "DEPENDS_ON",
+        "from_id": "wi_deep_3",
+        "to_id": "wi_deep_4",
+        "source_id": "src_scn_deep_chain",
+        "quote": "Item wi_deep_3 depends on item wi_deep_4."
+      }
+    },
+    {
+      "op": "add_decision",
+      "decision": {
+        "id": "dec_scn_deep_chain",
+        "summary": "Baseline forecasts for the deep chain items.",
+        "decided_at": "2026-10-02T10:00:00+05:30",
+        "status": "approved",
+        "revises_work_item_id": "wi_deep_1",
+        "supersedes_id": null,
+        "source_id": "src_scn_deep_chain",
+        "quote": "All deep chain items are forecast for October 18, 2026."
+      }
+    },
+    {
+      "op": "add_forecast",
+      "forecast": {
+        "id": "fc_scn_deep_1",
+        "work_item_id": "wi_deep_1",
+        "available_at": "2026-10-18",
+        "valid_from": "2026-10-02T10:00:00+05:30",
+        "valid_to": null,
+        "status": "accepted",
+        "established_by_decision_id": "dec_scn_deep_chain",
+        "source_id": "src_scn_deep_chain",
+        "quote": "All deep chain items are forecast for October 18, 2026."
+      }
+    },
+    {
+      "op": "add_forecast",
+      "forecast": {
+        "id": "fc_scn_deep_2",
+        "work_item_id": "wi_deep_2",
+        "available_at": "2026-10-18",
+        "valid_from": "2026-10-02T10:00:00+05:30",
+        "valid_to": null,
+        "status": "accepted",
+        "established_by_decision_id": "dec_scn_deep_chain",
+        "source_id": "src_scn_deep_chain",
+        "quote": "All deep chain items are forecast for October 18, 2026."
+      }
+    },
+    {
+      "op": "add_forecast",
+      "forecast": {
+        "id": "fc_scn_deep_3",
+        "work_item_id": "wi_deep_3",
+        "available_at": "2026-10-18",
+        "valid_from": "2026-10-02T10:00:00+05:30",
+        "valid_to": null,
+        "status": "accepted",
+        "established_by_decision_id": "dec_scn_deep_chain",
+        "source_id": "src_scn_deep_chain",
+        "quote": "All deep chain items are forecast for October 18, 2026."
+      }
+    }
+  ],
+  "expected": {
+    "import": "accepted",
+    "queries": [
+      {
+        "as_of": "2026-10-17T15:00:00+05:30",
+        "impacts": {
+          "com_acme_sso": {
+            "customer_id": "cust_acme",
+            "status": "no_detected_conflict",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_lena",
+            "account_owner_id": "person_maya",
+            "warnings": []
+          },
+          "com_birch_audit": {
+            "customer_id": "cust_birch",
+            "status": "no_detected_conflict",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_omar",
+            "account_owner_id": "person_nisha",
+            "warnings": []
+          },
+          "com_cedar_export": {
+            "customer_id": "cust_cedar",
+            "status": "needs_verification",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_eli",
+            "account_owner_id": "person_leo",
+            "warnings": [
+              "depth_limit_exceeded"
+            ],
+            "truncated": true
+          },
+          "com_delta_sso": {
+            "customer_id": "cust_delta",
+            "status": "no_detected_conflict",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_lena",
+            "account_owner_id": "person_noah",
+            "warnings": []
+          }
+        }
+      }
+    ]
+  }
+}

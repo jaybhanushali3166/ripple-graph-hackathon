@@ -1,0 +1,32 @@
+[
+  {
+    "id": "wi_sso",
+    "name": "SSO feature",
+    "kind": "feature"
+  },
+  {
+    "id": "wi_identity_migration",
+    "name": "Identity migration",
+    "kind": "project"
+  },
+  {
+    "id": "wi_permissions",
+    "name": "Permissions service",
+    "kind": "component"
+  },
+  {
+    "id": "wi_audit",
+    "name": "Audit-log feature",
+    "kind": "feature"
+  },
+  {
+    "id": "wi_export",
+    "name": "Data export feature",
+    "kind": "feature"
+  },
+  {
+    "id": "wi_export_worker",
+    "name": "Export worker",
+    "kind": "component"
+  }
+]

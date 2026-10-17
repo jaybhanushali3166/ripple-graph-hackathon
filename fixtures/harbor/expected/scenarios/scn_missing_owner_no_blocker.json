@@ -1,0 +1,57 @@
+{
+  "id": "scn_missing_owner_no_blocker",
+  "description": "Nobody owns wi_sso, the required root of Acme and Delta; no blocker, so status is needs_verification.",
+  "base": "harbor_baseline",
+  "operations": [
+    {
+      "op": "remove_owner",
+      "work_item_id": "wi_sso"
+    }
+  ],
+  "expected": {
+    "import": "accepted",
+    "queries": [
+      {
+        "as_of": "2026-10-17T15:00:00+05:30",
+        "impacts": {
+          "com_acme_sso": {
+            "customer_id": "cust_acme",
+            "status": "needs_verification",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": null,
+            "account_owner_id": "person_maya",
+            "warnings": [
+              "missing_engineering_owner"
+            ]
+          },
+          "com_birch_audit": {
+            "customer_id": "cust_birch",
+            "status": "no_detected_conflict",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_omar",
+            "account_owner_id": "person_nisha",
+            "warnings": []
+          },
+          "com_cedar_export": {
+            "customer_id": "cust_cedar",
+            "status": "no_detected_conflict",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_eli",
+            "account_owner_id": "person_leo",
+            "warnings": []
+          },
+          "com_delta_sso": {
+            "customer_id": "cust_delta",
+            "status": "needs_verification",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": null,
+            "account_owner_id": "person_noah",
+            "warnings": [
+              "missing_engineering_owner"
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

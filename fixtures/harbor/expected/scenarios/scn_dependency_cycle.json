@@ -1,0 +1,30 @@
+{
+  "id": "scn_dependency_cycle",
+  "description": "A permissions -> SSO dependency closes a cycle; the import must be rejected.",
+  "base": "harbor_baseline",
+  "added_sources": [
+    {
+      "id": "src_scn_cycle_note",
+      "type": "doc",
+      "title": "Scenario: bad dependency note",
+      "source_timestamp": "2026-10-10T09:00:00+05:30",
+      "body": "ARCH NOTE\nThe permissions service now depends on the SSO feature for admin login.\n"
+    }
+  ],
+  "operations": [
+    {
+      "op": "add_relationship",
+      "relationship": {
+        "type": "DEPENDS_ON",
+        "from_id": "wi_permissions",
+        "to_id": "wi_sso",
+        "source_id": "src_scn_cycle_note",
+        "quote": "The permissions service now depends on the SSO feature for admin login."
+      }
+    }
+  ],
+  "expected": {
+    "import": "rejected",
+    "reason": "dependency_cycle"
+  }
+}

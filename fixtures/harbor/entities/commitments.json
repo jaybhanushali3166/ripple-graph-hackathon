@@ -1,0 +1,34 @@
+[
+  {
+    "id": "com_acme_sso",
+    "title": "Enterprise SSO",
+    "due_at": "2026-10-23",
+    "status": "open",
+    "source_id": "src_acme_handoff",
+    "quote": "Commitment: Enterprise SSO delivered by October 23, 2026."
+  },
+  {
+    "id": "com_birch_audit",
+    "title": "Audit-log feature",
+    "due_at": "2026-10-26",
+    "status": "open",
+    "source_id": "src_birch_handoff",
+    "quote": "Commitment: Audit-log feature delivered by October 26, 2026."
+  },
+  {
+    "id": "com_cedar_export",
+    "title": "Data export",
+    "due_at": "2026-10-23",
+    "status": "open",
+    "source_id": "src_cedar_handoff",
+    "quote": "Commitment: Data export delivered by October 23, 2026."
+  },
+  {
+    "id": "com_delta_sso",
+    "title": "Enterprise SSO",
+    "due_at": "2026-11-05",
+    "status": "open",
+    "source_id": "src_delta_handoff",
+    "quote": "Commitment: Enterprise SSO delivered by November 5, 2026."
+  }
+]

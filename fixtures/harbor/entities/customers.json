@@ -1,0 +1,22 @@
+[
+  {
+    "id": "cust_acme",
+    "name": "Acme",
+    "synthetic_contract_value": 480000
+  },
+  {
+    "id": "cust_birch",
+    "name": "Birch",
+    "synthetic_contract_value": 220000
+  },
+  {
+    "id": "cust_cedar",
+    "name": "Cedar",
+    "synthetic_contract_value": 150000
+  },
+  {
+    "id": "cust_delta",
+    "name": "Delta",
+    "synthetic_contract_value": 310000
+  }
+]

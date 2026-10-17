@@ -1,0 +1,254 @@
+[
+  {
+    "type": "HAS_COMMITMENT",
+    "from_id": "cust_acme",
+    "to_id": "com_acme_sso",
+    "source_id": "src_acme_handoff",
+    "quote": "Commitment: Enterprise SSO delivered by October 23, 2026."
+  },
+  {
+    "type": "HAS_COMMITMENT",
+    "from_id": "cust_birch",
+    "to_id": "com_birch_audit",
+    "source_id": "src_birch_handoff",
+    "quote": "Commitment: Audit-log feature delivered by October 26, 2026."
+  },
+  {
+    "type": "HAS_COMMITMENT",
+    "from_id": "cust_cedar",
+    "to_id": "com_cedar_export",
+    "source_id": "src_cedar_handoff",
+    "quote": "Commitment: Data export delivered by October 23, 2026."
+  },
+  {
+    "type": "HAS_COMMITMENT",
+    "from_id": "cust_delta",
+    "to_id": "com_delta_sso",
+    "source_id": "src_delta_handoff",
+    "quote": "Commitment: Enterprise SSO delivered by November 5, 2026."
+  },
+  {
+    "type": "REQUIRES",
+    "from_id": "com_acme_sso",
+    "to_id": "wi_sso",
+    "source_id": "src_sso_plan",
+    "quote": "Acme's Enterprise SSO commitment requires the SSO feature."
+  },
+  {
+    "type": "REQUIRES",
+    "from_id": "com_delta_sso",
+    "to_id": "wi_sso",
+    "source_id": "src_sso_plan",
+    "quote": "Delta's Enterprise SSO commitment requires the SSO feature."
+  },
+  {
+    "type": "REQUIRES",
+    "from_id": "com_birch_audit",
+    "to_id": "wi_audit",
+    "source_id": "src_audit_plan",
+    "quote": "Birch's audit-log commitment requires the audit-log feature."
+  },
+  {
+    "type": "REQUIRES",
+    "from_id": "com_cedar_export",
+    "to_id": "wi_export",
+    "source_id": "src_export_plan",
+    "quote": "Cedar's data export commitment requires the data export feature."
+  },
+  {
+    "type": "DEPENDS_ON",
+    "from_id": "wi_sso",
+    "to_id": "wi_identity_migration",
+    "source_id": "src_sso_plan",
+    "quote": "The SSO feature depends on the identity migration project."
+  },
+  {
+    "type": "DEPENDS_ON",
+    "from_id": "wi_identity_migration",
+    "to_id": "wi_permissions",
+    "source_id": "src_identity_plan",
+    "quote": "The identity migration project depends on the permissions service."
+  },
+  {
+    "type": "DEPENDS_ON",
+    "from_id": "wi_audit",
+    "to_id": "wi_permissions",
+    "source_id": "src_audit_plan",
+    "quote": "The audit-log feature depends on the permissions service."
+  },
+  {
+    "type": "DEPENDS_ON",
+    "from_id": "wi_export",
+    "to_id": "wi_export_worker",
+    "source_id": "src_export_plan",
+    "quote": "The data export feature depends on the export worker component."
+  },
+  {
+    "type": "OWNS",
+    "from_id": "person_priya",
+    "to_id": "wi_permissions",
+    "source_id": "src_owners",
+    "quote": "Priya owns the permissions service."
+  },
+  {
+    "type": "OWNS",
+    "from_id": "person_lena",
+    "to_id": "wi_sso",
+    "source_id": "src_owners",
+    "quote": "Lena owns the SSO feature."
+  },
+  {
+    "type": "OWNS",
+    "from_id": "person_lena",
+    "to_id": "wi_identity_migration",
+    "source_id": "src_owners",
+    "quote": "Lena owns the identity migration project."
+  },
+  {
+    "type": "OWNS",
+    "from_id": "person_omar",
+    "to_id": "wi_audit",
+    "source_id": "src_owners",
+    "quote": "Omar owns the audit-log feature."
+  },
+  {
+    "type": "OWNS",
+    "from_id": "person_eli",
+    "to_id": "wi_export",
+    "source_id": "src_owners",
+    "quote": "Eli owns the data export feature."
+  },
+  {
+    "type": "OWNS",
+    "from_id": "person_eli",
+    "to_id": "wi_export_worker",
+    "source_id": "src_owners",
+    "quote": "Eli owns the export worker."
+  },
+  {
+    "type": "ACCOUNT_OWNER",
+    "from_id": "person_maya",
+    "to_id": "cust_acme",
+    "source_id": "src_owners",
+    "quote": "Maya is the account owner for Acme."
+  },
+  {
+    "type": "ACCOUNT_OWNER",
+    "from_id": "person_nisha",
+    "to_id": "cust_birch",
+    "source_id": "src_owners",
+    "quote": "Nisha is the account owner for Birch."
+  },
+  {
+    "type": "ACCOUNT_OWNER",
+    "from_id": "person_leo",
+    "to_id": "cust_cedar",
+    "source_id": "src_owners",
+    "quote": "Leo is the account owner for Cedar."
+  },
+  {
+    "type": "ACCOUNT_OWNER",
+    "from_id": "person_noah",
+    "to_id": "cust_delta",
+    "source_id": "src_owners",
+    "quote": "Noah is the account owner for Delta."
+  },
+  {
+    "type": "MEMBER_OF",
+    "from_id": "person_priya",
+    "to_id": "team_platform",
+    "source_id": "src_owners",
+    "quote": "Platform team: Priya, Lena."
+  },
+  {
+    "type": "MEMBER_OF",
+    "from_id": "person_lena",
+    "to_id": "team_platform",
+    "source_id": "src_owners",
+    "quote": "Platform team: Priya, Lena."
+  },
+  {
+    "type": "MEMBER_OF",
+    "from_id": "person_omar",
+    "to_id": "team_data",
+    "source_id": "src_owners",
+    "quote": "Data team: Omar, Eli."
+  },
+  {
+    "type": "MEMBER_OF",
+    "from_id": "person_eli",
+    "to_id": "team_data",
+    "source_id": "src_owners",
+    "quote": "Data team: Omar, Eli."
+  },
+  {
+    "type": "MEMBER_OF",
+    "from_id": "person_maya",
+    "to_id": "team_accounts",
+    "source_id": "src_owners",
+    "quote": "Accounts team: Maya, Nisha, Leo, Noah."
+  },
+  {
+    "type": "MEMBER_OF",
+    "from_id": "person_nisha",
+    "to_id": "team_accounts",
+    "source_id": "src_owners",
+    "quote": "Accounts team: Maya, Nisha, Leo, Noah."
+  },
+  {
+    "type": "MEMBER_OF",
+    "from_id": "person_leo",
+    "to_id": "team_accounts",
+    "source_id": "src_owners",
+    "quote": "Accounts team: Maya, Nisha, Leo, Noah."
+  },
+  {
+    "type": "MEMBER_OF",
+    "from_id": "person_noah",
+    "to_id": "team_accounts",
+    "source_id": "src_owners",
+    "quote": "Accounts team: Maya, Nisha, Leo, Noah."
+  },
+  {
+    "type": "RESPONSIBLE_FOR",
+    "from_id": "team_platform",
+    "to_id": "wi_permissions",
+    "source_id": "src_owners",
+    "quote": "Platform team is responsible for: permissions service, SSO feature, identity migration."
+  },
+  {
+    "type": "RESPONSIBLE_FOR",
+    "from_id": "team_platform",
+    "to_id": "wi_sso",
+    "source_id": "src_owners",
+    "quote": "Platform team is responsible for: permissions service, SSO feature, identity migration."
+  },
+  {
+    "type": "RESPONSIBLE_FOR",
+    "from_id": "team_platform",
+    "to_id": "wi_identity_migration",
+    "source_id": "src_owners",
+    "quote": "Platform team is responsible for: permissions service, SSO feature, identity migration."
+  },
+  {
+    "type": "RESPONSIBLE_FOR",
+    "from_id": "team_data",
+    "to_id": "wi_audit",
+    "source_id": "src_owners",
+    "quote": "Data team is responsible for: audit-log feature, data export feature, export worker."
+  },
+  {
+    "type": "RESPONSIBLE_FOR",
+    "from_id": "team_data",
+    "to_id": "wi_export",
+    "source_id": "src_owners",
+    "quote": "Data team is responsible for: audit-log feature, data export feature, export worker."
+  },
+  {
+    "type": "RESPONSIBLE_FOR",
+    "from_id": "team_data",
+    "to_id": "wi_export_worker",
+    "source_id": "src_owners",
+    "quote": "Data team is responsible for: audit-log feature, data export feature, export worker."
+  }
+]

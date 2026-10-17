@@ -1,0 +1,62 @@
+[
+  {
+    "id": "DEC-12",
+    "summary": "Permissions service delivery set to October 21, 2026, owner Priya.",
+    "decided_at": "2026-10-01T10:00:00+05:30",
+    "status": "approved",
+    "revises_work_item_id": "wi_permissions",
+    "supersedes_id": null,
+    "source_id": "src_dec12",
+    "quote": "DEC-12: Approved. The permissions service will be delivered by October 21, 2026."
+  },
+  {
+    "id": "dec_baseline_wi_identity_migration",
+    "summary": "Baseline: accept the identity migration forecast of 2026-10-22.",
+    "decided_at": "2026-10-01T10:00:00+05:30",
+    "status": "approved",
+    "revises_work_item_id": "wi_identity_migration",
+    "supersedes_id": null,
+    "source_id": "src_identity_plan",
+    "quote": "Identity migration: forecast available October 22, 2026."
+  },
+  {
+    "id": "dec_baseline_wi_sso",
+    "summary": "Baseline: accept the SSO feature forecast of 2026-10-23.",
+    "decided_at": "2026-10-01T10:00:00+05:30",
+    "status": "approved",
+    "revises_work_item_id": "wi_sso",
+    "supersedes_id": null,
+    "source_id": "src_sso_plan",
+    "quote": "SSO feature: forecast available October 23, 2026."
+  },
+  {
+    "id": "dec_baseline_wi_audit",
+    "summary": "Baseline: accept the audit-log feature forecast of 2026-10-24.",
+    "decided_at": "2026-10-01T10:00:00+05:30",
+    "status": "approved",
+    "revises_work_item_id": "wi_audit",
+    "supersedes_id": null,
+    "source_id": "src_audit_plan",
+    "quote": "Audit-log feature: forecast available October 24, 2026."
+  },
+  {
+    "id": "dec_baseline_wi_export_worker",
+    "summary": "Baseline: accept the export worker forecast of 2026-10-19.",
+    "decided_at": "2026-10-01T10:00:00+05:30",
+    "status": "approved",
+    "revises_work_item_id": "wi_export_worker",
+    "supersedes_id": null,
+    "source_id": "src_export_plan",
+    "quote": "Export worker: forecast available October 19, 2026."
+  },
+  {
+    "id": "dec_baseline_wi_export",
+    "summary": "Baseline: accept the data export feature forecast of 2026-10-21.",
+    "decided_at": "2026-10-01T10:00:00+05:30",
+    "status": "approved",
+    "revises_work_item_id": "wi_export",
+    "supersedes_id": null,
+    "source_id": "src_export_plan",
+    "quote": "Data export feature: forecast available October 21, 2026."
+  }
+]

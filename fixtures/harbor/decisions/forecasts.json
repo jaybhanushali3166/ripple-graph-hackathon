@@ -1,0 +1,68 @@
+[
+  {
+    "id": "fc_wi_permissions_baseline",
+    "work_item_id": "wi_permissions",
+    "available_at": "2026-10-21",
+    "valid_from": "2026-10-01T10:00:00+05:30",
+    "valid_to": null,
+    "status": "accepted",
+    "established_by_decision_id": "DEC-12",
+    "source_id": "src_permissions_ticket",
+    "quote": "Forecast: permissions service available October 21, 2026"
+  },
+  {
+    "id": "fc_wi_identity_migration_baseline",
+    "work_item_id": "wi_identity_migration",
+    "available_at": "2026-10-22",
+    "valid_from": "2026-10-01T10:00:00+05:30",
+    "valid_to": null,
+    "status": "accepted",
+    "established_by_decision_id": "dec_baseline_wi_identity_migration",
+    "source_id": "src_identity_plan",
+    "quote": "Identity migration: forecast available October 22, 2026."
+  },
+  {
+    "id": "fc_wi_sso_baseline",
+    "work_item_id": "wi_sso",
+    "available_at": "2026-10-23",
+    "valid_from": "2026-10-01T10:00:00+05:30",
+    "valid_to": null,
+    "status": "accepted",
+    "established_by_decision_id": "dec_baseline_wi_sso",
+    "source_id": "src_sso_plan",
+    "quote": "SSO feature: forecast available October 23, 2026."
+  },
+  {
+    "id": "fc_wi_audit_baseline",
+    "work_item_id": "wi_audit",
+    "available_at": "2026-10-24",
+    "valid_from": "2026-10-01T10:00:00+05:30",
+    "valid_to": null,
+    "status": "accepted",
+    "established_by_decision_id": "dec_baseline_wi_audit",
+    "source_id": "src_audit_plan",
+    "quote": "Audit-log feature: forecast available October 24, 2026."
+  },
+  {
+    "id": "fc_wi_export_worker_baseline",
+    "work_item_id": "wi_export_worker",
+    "available_at": "2026-10-19",
+    "valid_from": "2026-10-01T10:00:00+05:30",
+    "valid_to": null,
+    "status": "accepted",
+    "established_by_decision_id": "dec_baseline_wi_export_worker",
+    "source_id": "src_export_plan",
+    "quote": "Export worker: forecast available October 19, 2026."
+  },
+  {
+    "id": "fc_wi_export_baseline",
+    "work_item_id": "wi_export",
+    "available_at": "2026-10-21",
+    "valid_from": "2026-10-01T10:00:00+05:30",
+    "valid_to": null,
+    "status": "accepted",
+    "established_by_decision_id": "dec_baseline_wi_export",
+    "source_id": "src_export_plan",
+    "quote": "Data export feature: forecast available October 21, 2026."
+  }
+]

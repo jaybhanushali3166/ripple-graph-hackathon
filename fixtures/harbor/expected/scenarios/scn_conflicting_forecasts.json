@@ -1,0 +1,78 @@
+{
+  "id": "scn_conflicting_forecasts",
+  "description": "Two accepted, overlapping audit-log forecasts with different dates; Birch needs verification and no blocker is confirmed.",
+  "base": "harbor_baseline",
+  "operations": [
+    {
+      "op": "add_decision",
+      "decision": {
+        "id": "dec_scn_audit_alt",
+        "summary": "Unconfirmed chat remark recorded as a competing audit-log forecast.",
+        "decided_at": "2026-10-09T10:20:00+05:30",
+        "status": "approved",
+        "revises_work_item_id": "wi_audit",
+        "supersedes_id": null,
+        "source_id": "src_data_chat",
+        "quote": "it could land October 25 instead"
+      }
+    },
+    {
+      "op": "add_forecast",
+      "forecast": {
+        "id": "fc_scn_audit_alt",
+        "work_item_id": "wi_audit",
+        "available_at": "2026-10-25",
+        "valid_from": "2026-10-09T10:20:00+05:30",
+        "valid_to": null,
+        "status": "accepted",
+        "established_by_decision_id": "dec_scn_audit_alt",
+        "source_id": "src_data_chat",
+        "quote": "it could land October 25 instead"
+      }
+    }
+  ],
+  "expected": {
+    "import": "accepted",
+    "queries": [
+      {
+        "as_of": "2026-10-17T15:00:00+05:30",
+        "impacts": {
+          "com_acme_sso": {
+            "customer_id": "cust_acme",
+            "status": "no_detected_conflict",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_lena",
+            "account_owner_id": "person_maya",
+            "warnings": []
+          },
+          "com_birch_audit": {
+            "customer_id": "cust_birch",
+            "status": "needs_verification",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_omar",
+            "account_owner_id": "person_nisha",
+            "warnings": [
+              "conflicting_forecasts"
+            ]
+          },
+          "com_cedar_export": {
+            "customer_id": "cust_cedar",
+            "status": "no_detected_conflict",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_eli",
+            "account_owner_id": "person_leo",
+            "warnings": []
+          },
+          "com_delta_sso": {
+            "customer_id": "cust_delta",
+            "status": "no_detected_conflict",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_lena",
+            "account_owner_id": "person_noah",
+            "warnings": []
+          }
+        }
+      }
+    ]
+  }
+}

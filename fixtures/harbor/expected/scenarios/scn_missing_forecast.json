@@ -1,0 +1,57 @@
+{
+  "id": "scn_missing_forecast",
+  "description": "Identity migration has no accepted forecast; Acme and Delta cannot be cleared.",
+  "base": "harbor_baseline",
+  "operations": [
+    {
+      "op": "remove_forecast",
+      "forecast_id": "fc_wi_identity_migration_baseline"
+    }
+  ],
+  "expected": {
+    "import": "accepted",
+    "queries": [
+      {
+        "as_of": "2026-10-17T15:00:00+05:30",
+        "impacts": {
+          "com_acme_sso": {
+            "customer_id": "cust_acme",
+            "status": "needs_verification",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_lena",
+            "account_owner_id": "person_maya",
+            "warnings": [
+              "missing_forecast"
+            ]
+          },
+          "com_birch_audit": {
+            "customer_id": "cust_birch",
+            "status": "no_detected_conflict",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_omar",
+            "account_owner_id": "person_nisha",
+            "warnings": []
+          },
+          "com_cedar_export": {
+            "customer_id": "cust_cedar",
+            "status": "no_detected_conflict",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_eli",
+            "account_owner_id": "person_leo",
+            "warnings": []
+          },
+          "com_delta_sso": {
+            "customer_id": "cust_delta",
+            "status": "needs_verification",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_lena",
+            "account_owner_id": "person_noah",
+            "warnings": [
+              "missing_forecast"
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
