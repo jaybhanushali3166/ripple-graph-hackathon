@@ -21,9 +21,13 @@ export function useReviewedMutation<Payload, Result>(submit: (payload: Payload) 
     } finally { pendingRef.current = false; setPending(false); }
   }
   function abandon() {
+    if (pendingRef.current) return false;
     attempt.current = null;
     setUncertain(false);
     setError(null);
+    return true;
   }
-  return { run, abandon, pending, uncertain, error, blocked: pending || uncertain };
+  // Recovery must ask the mutation endpoint about this exact stored attempt.
+  const retry = () => run();
+  return { run, retry, abandon, pending, uncertain, error, blocked: pending || uncertain };
 }

@@ -11,11 +11,12 @@ const preview = (): DecisionPreview => ({ preview_id: 'stored-preview', evidence
 beforeEach(() => vi.resetAllMocks());
 async function openReview() {
   const onConfirmed = vi.fn(), onStale = vi.fn();
-  render(<DecisionReviewDialog version="dataset:one" disabled={false} onLock={vi.fn()} onConfirmed={onConfirmed} onStale={onStale} />);
+  const onLock = vi.fn();
+  const view = render(<DecisionReviewDialog version="dataset:one" disabled={false} onLock={onLock} onConfirmed={onConfirmed} onStale={onStale} />);
   await userEvent.click(screen.getByRole('button', { name: 'Review decision' }));
   fireEvent.change(screen.getByLabelText('Approved engineering note'), { target: { value: 'Approved delivery update.' } });
   await userEvent.click(screen.getByRole('button', { name: 'Preview decision' }));
-  return { onConfirmed, onStale };
+  return { onConfirmed, onStale, onLock, view };
 }
 describe('immutable decision review', () => {
   it('invalidates the preview when the reviewed source text changes', async () => {
@@ -65,16 +66,52 @@ describe('immutable decision review', () => {
     expect(screen.getByRole('button', { name: 'Confirm reviewed update' })).toBeVisible();
     expect(callbacks.onStale).not.toHaveBeenCalled();
   });
-  it('allows abandoning an uncertain confirmation to unlock the dialog', async () => {
+  it('requires an explicit duplicate-risk acknowledgement before abandoning an unknown update', async () => {
     vi.mocked(previewDecision).mockResolvedValue(preview());
     vi.mocked(confirmDecision).mockRejectedValue(new ApiError(0, 'network_error', 'Connection lost'));
     await openReview();
     await userEvent.click(await screen.findByRole('button', { name: 'Confirm reviewed update' }));
     expect(await screen.findByText(/The confirmation outcome is unknown/i)).toBeVisible();
-    const abandonBtn = screen.getByRole('button', { name: 'Abandon update' });
+    const confirmAbandon = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+    const abandonBtn = screen.getByRole('button', { name: 'Abandon update (may duplicate)' });
     expect(abandonBtn).toBeVisible();
+    await userEvent.click(abandonBtn);
+    expect(screen.getByText(/The confirmation outcome is unknown/i)).toBeVisible();
+    expect(confirmAbandon).toHaveBeenCalledWith(expect.stringMatching(/duplicate/i));
     await userEvent.click(abandonBtn);
     expect(screen.queryByText(/The confirmation outcome is unknown/i)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Close' })).toBeEnabled();
+  });
+  it('preserves the attempt across close and a changed version, then asks the mutation endpoint definitively', async () => {
+    vi.mocked(previewDecision).mockResolvedValue(preview());
+    vi.mocked(confirmDecision)
+      .mockRejectedValueOnce(new ApiError(0, 'network_error', 'Connection lost'))
+      .mockRejectedValueOnce(new ApiError(409, 'stale_evidence', 'Another update changed the evidence.'));
+    const callbacks = await openReview();
+    await userEvent.click(await screen.findByRole('button', { name: 'Confirm reviewed update' }));
+    await screen.findByText(/The confirmation outcome is unknown/i);
+    const originalPayload = vi.mocked(confirmDecision).mock.calls[0][0];
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(callbacks.onLock).toHaveBeenLastCalledWith(false));
+    callbacks.view.rerender(<DecisionReviewDialog version="dataset:two" disabled={true} externalPending={true} onLock={callbacks.onLock} onConfirmed={callbacks.onConfirmed} onStale={callbacks.onStale} />);
+    expect(screen.getByRole('button', { name: 'Resolve pending update' })).toBeDisabled();
+    callbacks.view.rerender(<DecisionReviewDialog version="dataset:two" disabled={false} externalPending={false} onLock={callbacks.onLock} onConfirmed={callbacks.onConfirmed} onStale={callbacks.onStale} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Resolve pending update' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Check current state' }));
+    await waitFor(() => expect(callbacks.onStale).toHaveBeenCalledOnce());
+    expect(confirmDecision).toHaveBeenNthCalledWith(2, originalPayload);
+    expect(callbacks.onConfirmed).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Approved engineering note')).toHaveValue('Approved delivery update.');
+  });
+  it('marks confirmation successful only after replaying the stored request returns success', async () => {
+    vi.mocked(previewDecision).mockResolvedValue(preview());
+    vi.mocked(confirmDecision)
+      .mockRejectedValueOnce(new ApiError(503, 'graph_unavailable', 'Graph unavailable'))
+      .mockResolvedValueOnce({ decision_id: 'decision-recorded', evidence_version: 'dataset:two', changed_work_item_ids: ['wi_permissions'] });
+    const callbacks = await openReview();
+    await userEvent.click(await screen.findByRole('button', { name: 'Confirm reviewed update' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Check current state' }));
+    await waitFor(() => expect(callbacks.onConfirmed).toHaveBeenCalledOnce());
+    expect(confirmDecision).toHaveBeenNthCalledWith(2, vi.mocked(confirmDecision).mock.calls[0][0]);
   });
 });

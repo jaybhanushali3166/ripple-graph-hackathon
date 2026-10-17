@@ -20,22 +20,14 @@ export function SavedActions({
   revision: number;
   impact?: Impact;
   onSource: OpenSource;
-  onStale: () => void;
+  onStale: (observedVersion: string) => void;
 }) {
   const result = useResource(`actions:${commitmentId}:${version}:${revision}`, signal => getActions(commitmentId, signal));
   const staleHandler = useRef(onStale); staleHandler.current = onStale;
-  const lastStaleSignaled = useRef<string | null>(null);
-
+  // The parent owns the refresh guard; this panel unmounts on workspace reload.
   useEffect(() => {
-    if (result.data) {
-      if (result.data.evidence_version !== version) {
-        if (lastStaleSignaled.current !== result.data.evidence_version) {
-          lastStaleSignaled.current = result.data.evidence_version;
-          staleHandler.current();
-        }
-      } else {
-        lastStaleSignaled.current = null;
-      }
+    if (result.data && result.data.evidence_version !== version) {
+      staleHandler.current(result.data.evidence_version);
     }
   }, [result.data, version]);
 

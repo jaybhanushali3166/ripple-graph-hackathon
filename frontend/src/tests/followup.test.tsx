@@ -93,4 +93,62 @@ describe('grounded follow-ups', () => {
     expect(screen.getByText(/draft assignee/i)).toBeVisible();
     expect(saveAction).not.toHaveBeenCalled();
   });
+  it('does not infer save success from an older Action with the same body; checks replay the original attempt', async () => {
+    const response = answer();
+    response.drafts = [{ kind: 'internal_escalation', commitment_id: 'com_acme_sso', assignee_id: 'person_priya', body: 'Templated repeated text.', citations: [{ source_id: 'src_dec12', quote: 'Approved' }], based_on_decision_ids: ['DEC-12'] }];
+    vi.mocked(runAgent).mockResolvedValue(response);
+    vi.mocked(getActions).mockResolvedValue({ evidence_version: version, actions: [{ ...response.drafts[0], id: 'older-action', assignee_id: 'person_priya', status: 'reviewed', evidence_version: version, created_at: Date.now() - 1000 }] });
+    vi.mocked(saveAction)
+      .mockRejectedValueOnce(new ApiError(0, 'network_error', 'Connection lost'))
+      .mockRejectedValueOnce(new ApiError(503, 'graph_unavailable', 'Still unavailable'))
+      .mockResolvedValueOnce({ action_id: 'new-action', status: 'reviewed', evidence_version: version, created_at: Date.now() });
+    panel();
+    await userEvent.click(screen.getByRole('button', { name: 'Affected promises & owners' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Save reviewed draft' }));
+    const originalPayload = vi.mocked(saveAction).mock.calls[0][0];
+    await userEvent.click(await screen.findByRole('button', { name: 'Check current state' }));
+    expect(await screen.findByText('Still unavailable')).toBeVisible();
+    expect(saveAction).toHaveBeenNthCalledWith(2, originalPayload);
+    expect(getActions).toHaveBeenCalledOnce();
+    expect(screen.queryByText(/Reviewed draft saved\. Find it/)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Check current state' }));
+    expect(await screen.findByText(/Reviewed draft saved\. Find it/)).toBeVisible();
+    expect(saveAction).toHaveBeenNthCalledWith(3, originalPayload);
+  });
+  it('requires acknowledging duplicate risk before discarding an unknown save', async () => {
+    const response = answer();
+    response.drafts = [{ kind: 'internal_escalation', commitment_id: 'com_acme_sso', assignee_id: 'person_priya', body: 'Reviewed text.', citations: [{ source_id: 'src_dec12', quote: 'Approved' }], based_on_decision_ids: ['DEC-12'] }];
+    vi.mocked(runAgent).mockResolvedValue(response);
+    vi.mocked(saveAction).mockRejectedValue(new ApiError(0, 'network_error', 'Connection lost'));
+    const confirmAbandon = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+    panel();
+    await userEvent.click(screen.getByRole('button', { name: 'Affected promises & owners' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Save reviewed draft' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Abandon save (may duplicate)' }));
+    expect(screen.getByRole('button', { name: 'Retry same save' })).toBeVisible();
+    expect(confirmAbandon).toHaveBeenCalledWith(expect.stringMatching(/duplicate Action/));
+    await userEvent.click(screen.getByRole('button', { name: 'Abandon save (may duplicate)' }));
+    expect(screen.queryByRole('button', { name: 'Retry same save' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Review and edit')).toBeEnabled();
+  });
+  it('retains a stale reviewed draft for inspection while disabling another save', async () => {
+    const response = answer();
+    response.drafts = [{ kind: 'internal_escalation', commitment_id: 'com_acme_sso', assignee_id: 'person_priya', body: 'Reviewed text to retain.', citations: [{ source_id: 'src_dec12', quote: 'Approved' }], based_on_decision_ids: ['DEC-12'] }];
+    vi.mocked(runAgent).mockResolvedValue(response);
+    vi.mocked(saveAction).mockRejectedValue(new ApiError(409, 'stale_evidence', 'Evidence changed'));
+    panel();
+    await userEvent.click(screen.getByRole('button', { name: 'Affected promises & owners' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Save reviewed draft' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Evidence changed');
+    expect(screen.getByLabelText('Review and edit')).toHaveValue('Reviewed text to retain.');
+    expect(screen.getByRole('button', { name: 'Save reviewed draft' })).toBeDisabled();
+  });
+  it('explains when a returned draft belongs to another commitment', async () => {
+    const response = answer();
+    response.drafts = [{ kind: 'internal_escalation', commitment_id: 'com_birch_audit', assignee_id: 'person_priya', body: 'Different commitment.', citations: [{ source_id: 'src_dec12', quote: 'Approved' }], based_on_decision_ids: ['DEC-12'] }];
+    vi.mocked(runAgent).mockResolvedValue(response); panel();
+    await userEvent.click(screen.getByRole('button', { name: 'Affected promises & owners' }));
+    expect(await screen.findByText(/this draft belongs to a different commitment/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Save reviewed draft' })).toBeDisabled();
+  });
 });
