@@ -20,7 +20,7 @@ import json
 import uuid
 from pathlib import Path
 
-from .errors import FixtureError
+from .errors import FixtureError, GraphError
 from .timeutil import instant_ms, to_ms
 
 REL_LABELS = {
@@ -232,15 +232,74 @@ def _edge_statements(data):
             for a in data["aliases"] if a["kind"] == kind for cid in a["candidate_ids"]]
 
 
+# ---- schema of what is written: exact keys and types, checked before any write
+TEXT, MS, NUMBER = "text", "epoch_ms", "number"
+NODE_SCHEMA = {
+    "Customer": {"id": TEXT, "name": TEXT, "synthetic_contract_value": NUMBER},
+    "Commitment": {"id": TEXT, "title": TEXT, "due_at": MS, "status": TEXT, "source_id": TEXT, "quote": TEXT},
+    "WorkItem": {"id": TEXT, "name": TEXT, "kind": TEXT},
+    "Person": {"id": TEXT, "name": TEXT},
+    "Team": {"id": TEXT, "name": TEXT},
+    "Source": {"id": TEXT, "type": TEXT, "title": TEXT, "body": TEXT, "source_timestamp": MS, "content_hash": TEXT},
+    "Decision": {"id": TEXT, "summary": TEXT, "decided_at": MS, "status": TEXT, "source_id": TEXT, "quote": TEXT},
+    "Forecast": {"id": TEXT, "available_at": MS, "valid_from": MS, "status": TEXT, "source_id": TEXT, "quote": TEXT},
+    "Alias": {"id": TEXT, "text": TEXT, "text_lower": TEXT, "kind": TEXT},
+}
+OPTIONAL_NODE_PROPS = {"Forecast": {"valid_to": MS}}
+EDGE_SCHEMA = {"from_id": TEXT, "to_id": TEXT}
+EDGE_PROVENANCE = {"source_id": TEXT, "quote": TEXT}
+WORK_ITEM_KINDS = ("feature", "component", "project")  # the API's PathNode.kind values
+
+
+def _type_ok(value, kind):
+    if kind == TEXT:
+        return isinstance(value, str)
+    if isinstance(value, bool):  # bool is an int subclass; never a valid number or time here
+        return False
+    if kind == MS:
+        return isinstance(value, int)
+    return isinstance(value, (int, float)) and value == value and abs(value) != float("inf")
+
+
+def _check_props(where, props, required, optional=None):
+    optional = optional or {}
+    keys = set(props)
+    if not set(required) <= keys or not keys <= set(required) | set(optional):
+        raise FixtureError("%s has properties %s, expected %s" % (where, sorted(keys), sorted(required)))
+    for key, value in props.items():
+        if not _type_ok(value, required.get(key) or optional[key]):
+            raise FixtureError("%s.%s has unsupported value %r (expected %s)"
+                               % (where, key, value, required.get(key) or optional[key]))
+    if not props.get("id", "x"):
+        raise FixtureError("%s has an empty id" % where)
+
+
+def check_schema(node_rows, edge_statements):
+    """Every row about to be written has exactly the expected keys and storable types."""
+    for label, rows in node_rows.items():
+        for row in rows:
+            _check_props("%s %r" % (label, row.get("id")), row, NODE_SCHEMA[label], OPTIONAL_NODE_PROPS.get(label))
+    for row in node_rows["WorkItem"]:
+        if row["kind"] not in WORK_ITEM_KINDS:
+            raise FixtureError("WorkItem %r has kind %r, expected one of %s" % (row["id"], row["kind"], WORK_ITEM_KINDS))
+    for _, _, edge_type, rows in edge_statements:
+        for row in rows:
+            schema = dict(EDGE_SCHEMA, **(EDGE_PROVENANCE if "quote" in rows[0] else {}))
+            _check_props("%s edge %r" % (edge_type, row.get("from_id")), row, schema)
+
+
 def prepare(data):
     """Validate data and convert it to node rows and edge statements, touching nothing.
 
-    Every malformed field (bad date, missing key, wrong type) surfaces here as a
-    FixtureError, so a rejected import can never reach the destructive part of write_graph.
+    Every malformed field (bad date, missing key, wrong or unstorable type) surfaces here
+    as a FixtureError. write_graph also stages the load, so even an error only the
+    database detects cannot reach the live graph.
     """
     try:
         validate(data)
-        return _node_rows(data), list(_edge_statements(data))
+        node_rows, edge_statements = _node_rows(data), list(_edge_statements(data))
+        check_schema(node_rows, edge_statements)
+        return node_rows, edge_statements
     except FixtureError:
         raise
     except (KeyError, TypeError, ValueError, AttributeError) as exc:
@@ -248,8 +307,36 @@ def prepare(data):
 
 
 def write_graph(client, data):
-    """Wipe the client's graph and load data. Returns the new dataset_id."""
-    node_rows, edge_statements = prepare(data)  # before delete_graph: a bad payload keeps the old graph
+    """Replace the client's graph with data. Returns the new dataset_id.
+
+    The new graph is built in a separate staging graph. Only when every write there has
+    succeeded does one atomic rename replace the live graph, so a failed load (including
+    a rejection only the database detects) never touches the live graph.
+    """
+    node_rows, edge_statements = prepare(data)
+    staging = client.for_graph("%s__staging_%s" % (client.graph_name, uuid.uuid4().hex[:8]))
+    try:
+        dataset_id = _load(staging, node_rows, edge_statements)
+        staging.move_to(client.graph_name)
+        return dataset_id
+    finally:
+        _drop_staging(staging)  # no-op after a successful move
+
+
+def _drop_staging(staging):
+    """Best-effort removal of a staging graph left by a failed load.
+
+    The outcome is already decided when this runs, so a cleanup error must not hide the
+    error that made the load fail.
+    """
+    try:
+        staging.delete_graph()
+    except GraphError:
+        pass
+
+
+def _load(client, node_rows, edge_statements):
+    """Write prepared rows into client's (empty) graph and return the new dataset_id."""
     client.delete_graph()
     for label in NODE_LABELS + ["GraphState", "Action", "RequestRecord"]:
         client.write("CREATE INDEX FOR (n:%s) ON (n.id)" % label)

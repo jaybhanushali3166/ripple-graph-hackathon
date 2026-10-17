@@ -61,3 +61,18 @@ class GraphClient:
             self._run(lambda: self._graph().delete())
         except NotFound:
             pass
+
+    def for_graph(self, graph_name):
+        """A client for another graph on the same server and credentials."""
+        return GraphClient(self.host, self.port, self.password, graph_name, self.timeout_seconds)
+
+    def move_to(self, graph_name):
+        """Atomically rename this graph to graph_name, replacing any graph already there.
+
+        One Redis RENAME: no fork (unlike GRAPH.COPY, which intermittently failed with
+        "could not fork" in local test runs) and no moment where graph_name is missing.
+        """
+        def rename():
+            self._graph()  # opens the connection
+            self._db.connection.execute_command("RENAME", self.graph_name, graph_name)
+        self._run(rename)

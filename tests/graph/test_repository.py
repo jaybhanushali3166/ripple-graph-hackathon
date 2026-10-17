@@ -7,12 +7,15 @@ has the falkordb client, for example:
 Connection settings come from FALKORDB_HOST / FALKORDB_PORT / FALKORDB_PASSWORD.
 """
 import json
+import shutil
 import statistics
 import sys
+import tempfile
 import time
 import unittest
 import uuid
 from pathlib import Path
+from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = REPO_ROOT / "fixtures" / "harbor"
@@ -20,7 +23,7 @@ sys.path.insert(0, str(REPO_ROOT))  # lets `backend.app.graph` import without pa
 
 try:
     from backend.app.graph.client import GraphClient
-    from backend.app.graph.errors import FixtureError, GraphUnavailable, InconsistentRead, NotFound
+    from backend.app.graph.errors import FixtureError, GraphError, GraphUnavailable, InconsistentRead, NotFound
     from backend.app.graph.repository import GraphRepository, warning_code
     from backend.app.graph.seed import apply_scenario, load_fixtures
     from backend.app.graph.timeutil import instant_ms
@@ -116,41 +119,6 @@ class BaselineTests(RepositoryTestCase):
             self.seed(scenario)
             for query in expected["queries"]:
                 self.assert_impacts(query["as_of"], query["impacts"])
-
-    def test_malformed_import_keeps_the_existing_graph(self):
-        """Fields that pass ID/quote validation but fail conversion must not delete anything."""
-        self.seed()
-        version = self.repo.get_version()
-        saved = self.repo.save_action(
-            {"commitment_id": "com_acme_sso", "kind": "internal_escalation", "assignee_id": "person_priya",
-             "body": "Please replan.", "citations": [{"source_id": "src_dec12", "quote": "DEC-12: Approved."}],
-             "based_on_decision_ids": ["DEC-12"]}, version, "keep_me")
-        read = self.client.read
-        before = (read("MATCH (n) RETURN count(n)")[0][0], read("MATCH ()-[e]->() RETURN count(e)")[0][0],
-                  self.repo.get_version(), self.repo.list_actions("com_acme_sso"),
-                  self.repo.list_impacts(instant_ms("2026-10-17T15:00:00+05:30")))
-        forecast = {"id": "fc_bad", "work_item_id": "wi_permissions", "available_at": "2026-10-28",
-                    "valid_from": "2026-10-17T14:30:00+05:30", "valid_to": None, "status": "accepted",
-                    "established_by_decision_id": "DEC-12", "source_id": "src_dec12", "quote": "DEC-12: Approved."}
-        cases = {
-            "unparseable date": [{"op": "add_forecast", "forecast": dict(forecast, available_at="not-a-date")}],
-            "instant without offset": [{"op": "add_forecast", "forecast": dict(forecast, valid_from="2026-10-17T14:30:00")}],
-            "missing field": [{"op": "add_work_item", "work_item": {"id": "wi_no_kind", "name": "No kind"}}],
-            "wrong type": [{"op": "add_forecast", "forecast": dict(forecast, available_at=20261028)}],
-            "unknown relationship type": [{"op": "add_relationship", "relationship": {
-                "type": "BLOCKS", "from_id": "wi_sso", "to_id": "wi_permissions",
-                "source_id": "src_dec12", "quote": "DEC-12: Approved."}}],
-            "malformed operation": [{"op": "remove_owner"}],
-        }
-        for name, operations in cases.items():
-            with self.subTest(name):
-                with self.assertRaises(FixtureError):
-                    self.seed({"operations": operations})
-                after = (read("MATCH (n) RETURN count(n)")[0][0], read("MATCH ()-[e]->() RETURN count(e)")[0][0],
-                         self.repo.get_version(), self.repo.list_actions("com_acme_sso"),
-                         self.repo.list_impacts(instant_ms("2026-10-17T15:00:00+05:30")))
-                self.assertEqual(after, before)
-        self.assertEqual([a["id"] for a in before[3]["actions"]], [saved["action_id"]])
 
     def test_evidence_is_exact_and_provenanced(self):
         self.seed({"operations": [{"op": "apply_update", "work_item_id": "wi_permissions",
@@ -288,6 +256,142 @@ class BaselineTests(RepositoryTestCase):
             timings.append((time.perf_counter() - start) * 1000)
         print("\nlist_impacts over 20 runs: median %.1f ms, max %.1f ms" % (statistics.median(timings), max(timings)),
               file=sys.stderr)
+
+
+class SafeReseedTests(RepositoryTestCase):
+    """A rejected or failed reseed must leave the whole previous workspace in place."""
+    FORECAST = {"id": "fc_bad", "work_item_id": "wi_permissions", "available_at": "2026-10-28",
+                "valid_from": "2026-10-17T14:30:00+05:30", "valid_to": None, "status": "accepted",
+                "established_by_decision_id": "DEC-12", "source_id": "src_dec12", "quote": "DEC-12: Approved."}
+
+    def setUp(self):
+        self.seed()
+        self.saved = self.repo.save_action(
+            {"commitment_id": "com_acme_sso", "kind": "internal_escalation", "assignee_id": "person_priya",
+             "body": "Please replan.", "citations": [{"source_id": "src_dec12", "quote": "DEC-12: Approved."}],
+             "based_on_decision_ids": ["DEC-12"]}, self.repo.get_version(), "keep_me")
+        self.before = self.workspace()
+        self.assertIn(self.saved["action_id"], [a["id"] for a in self.before["actions"]["actions"]])
+
+    def workspace(self):
+        """Every node with all its properties, every edge, the version, Actions and impacts."""
+        read = self.client.read
+        return {"nodes": sorted(map(repr, read("MATCH (n) RETURN labels(n)[0], properties(n)"))),
+                "edges": sorted(map(repr, read("MATCH (a)-[e]->(b) RETURN a.id, type(e), properties(e), b.id"))),
+                "version": self.repo.get_version(), "actions": self.repo.list_actions("com_acme_sso"),
+                "impacts": self.repo.list_impacts(instant_ms("2026-10-17T15:00:00+05:30"))}
+
+    def graphs(self):
+        from falkordb import FalkorDB
+        c = self.client
+        return set(FalkorDB(host=c.host, port=c.port, password=c.password).list_graphs())
+
+    def assert_untouched(self):
+        self.assertEqual(self.workspace(), self.before)
+        leftovers = {g for g in self.graphs() if g.startswith(self.client.graph_name + "__")}
+        self.assertEqual(leftovers, set(), "staging/backup graphs must be cleaned up")
+
+    def fixtures_with(self, edit):
+        """A temporary copy of the fixtures with edit(entities_dir) applied."""
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp)
+        shutil.copytree(FIXTURES, tmp / "harbor")
+        edit(tmp / "harbor" / "entities")
+        return tmp / "harbor"
+
+    def test_scenario_fields_that_fail_conversion(self):
+        cases = {
+            "unparseable date": [{"op": "add_forecast", "forecast": dict(self.FORECAST, available_at="not-a-date")}],
+            "instant without offset": [{"op": "add_forecast",
+                                        "forecast": dict(self.FORECAST, valid_from="2026-10-17T14:30:00")}],
+            "missing field": [{"op": "add_work_item", "work_item": {"id": "wi_no_kind", "name": "No kind"}}],
+            "int date": [{"op": "add_forecast", "forecast": dict(self.FORECAST, available_at=20261028)}],
+            "object status": [{"op": "add_forecast", "forecast": dict(self.FORECAST, status={"x": 1})}],
+            "unknown work item kind": [{"op": "add_work_item",
+                                        "work_item": {"id": "wi_odd", "name": "Odd", "kind": "epic"}}],
+            "unknown relationship type": [{"op": "add_relationship", "relationship": {
+                "type": "BLOCKS", "from_id": "wi_sso", "to_id": "wi_permissions",
+                "source_id": "src_dec12", "quote": "DEC-12: Approved."}}],
+            "malformed operation": [{"op": "remove_owner"}],
+        }
+        for name, operations in cases.items():
+            with self.subTest(name):
+                with self.assertRaises(FixtureError):
+                    self.seed({"operations": operations})
+                self.assert_untouched()
+
+    def test_fixture_values_the_database_cannot_store(self):
+        """The re-review reproductions: object-valued Person.name and Customer.synthetic_contract_value."""
+        def set_field(file, index, field, value):
+            def edit(entities):
+                path = entities / file
+                rows = json.loads(path.read_text(encoding="utf-8"))
+                rows[index][field] = value
+                path.write_text(json.dumps(rows), encoding="utf-8")
+            return edit
+        cases = {
+            "object Person.name": set_field("people.json", 0, "name", {"unexpected": "object"}),
+            "object contract value": set_field("customers.json", 0, "synthetic_contract_value", {"unexpected": 1}),
+            "list Team.name": set_field("teams.json", 0, "name", ["a", "b"]),
+            "bool contract value": set_field("customers.json", 0, "synthetic_contract_value", True),
+            "null Person.name": set_field("people.json", 0, "name", None),
+            "number Person.name": set_field("people.json", 0, "name", 42),
+        }
+        for name, edit in cases.items():
+            with self.subTest(name):
+                with self.assertRaises(FixtureError):
+                    self.repo.seed_demo(self.fixtures_with(edit))
+                self.assert_untouched()
+
+    def test_database_rejection_during_load_keeps_the_live_graph(self):
+        """A write error only the database detects happens in staging, never on the live graph."""
+        original = GraphClient.write
+
+        def reject_people_in_staging(client, cypher, params=None):
+            if "__staging_" in client.graph_name and ":Person)" in cypher:
+                raise GraphError("graph query failed: simulated property-type rejection")
+            return original(client, cypher, params)
+        with mock.patch.object(GraphClient, "write", reject_people_in_staging):
+            with self.assertRaises(GraphError):
+                self.seed()
+        self.assert_untouched()
+
+    def test_failed_rename_keeps_the_live_graph(self):
+        def rename_fails(client, graph_name):
+            raise GraphError("graph query failed: simulated rename failure")
+        with mock.patch.object(GraphClient, "move_to", rename_fails):
+            with self.assertRaises(GraphError):
+                self.seed()
+        self.assert_untouched()
+
+    def test_cleanup_failure_does_not_hide_the_load_error(self):
+        write, delete = GraphClient.write, GraphClient.delete_graph
+
+        def reject_people_in_staging(client, cypher, params=None):
+            if "__staging_" in client.graph_name and ":Person)" in cypher:
+                raise GraphError("graph query failed: simulated property-type rejection")
+            return write(client, cypher, params)
+
+        def staging_cleanup_fails(client):
+            # Only the cleanup after the failed load: the staging graph exists by then.
+            if "__staging_" in client.graph_name and client.graph_name in self.graphs():
+                self.addCleanup(delete, client)  # the leftover staging graph this test causes
+                raise GraphUnavailable("simulated cleanup failure")
+            return delete(client)
+        with mock.patch.object(GraphClient, "write", reject_people_in_staging), \
+                mock.patch.object(GraphClient, "delete_graph", staging_cleanup_fails):
+            with self.assertRaises(GraphError) as caught:
+                self.seed()
+        self.assertIn("simulated property-type rejection", str(caught.exception))
+        self.assertEqual(self.workspace(), self.before)
+
+    def test_successful_reseed_replaces_everything_and_cleans_up(self):
+        dataset_id = self.seed()
+        self.assertEqual(self.repo.get_version(), "%s:0" % dataset_id)
+        self.assertEqual(self.repo.list_actions("com_acme_sso")["actions"], [])
+        self.assertEqual({g for g in self.graphs() if g.startswith(self.client.graph_name + "__")}, set())
+        indexed = {row[0] for row in self.client.read("CALL db.indexes() YIELD label RETURN label")}
+        self.assertTrue({"WorkItem", "GraphState", "Action", "RequestRecord"} <= indexed, indexed)
 
 
 class SeedTests(RepositoryTestCase):
