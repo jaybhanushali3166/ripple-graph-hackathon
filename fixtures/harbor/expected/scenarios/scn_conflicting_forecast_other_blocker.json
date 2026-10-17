@@ -1,0 +1,110 @@
+{
+  "id": "scn_conflicting_forecast_other_blocker",
+  "description": "Identity migration has two active forecasts (one past Acme's due date) while permissions is a confirmed blocker: Acme is date_conflict on permissions only and keeps the conflict warning; Delta has no confirmed blocker and needs verification.",
+  "base": "harbor_baseline",
+  "added_sources": [
+    {
+      "id": "src_scn_update_notes",
+      "type": "chat",
+      "title": "Scenario: approved update notes",
+      "source_timestamp": "2026-10-17T14:25:00+05:30",
+      "body": "Approved: permissions service delivery moves from October 21, 2026 to October 28, 2026. Owner: Priya. This replaces decision DEC-12.\nApproved: identity migration delivery moves from October 22, 2026 to October 25, 2026. Owner: Lena.\n"
+    },
+    {
+      "id": "src_scn_slip_notes",
+      "type": "chat",
+      "title": "Scenario: slip notes",
+      "source_timestamp": "2026-10-12T09:50:00+05:30",
+      "body": "#eng-data  |  2026-10-12\n[09:50] Omar: Audit-log feature now looks like October 27, 2026.\n[09:51] Lena: Identity migration might also slip to October 25, 2026.\n"
+    }
+  ],
+  "operations": [
+    {
+      "op": "apply_update",
+      "work_item_id": "wi_permissions",
+      "available_at": "2026-10-28",
+      "effective_at": "2026-10-17T14:30:00+05:30",
+      "decision_id": "dec_scn_permissions_oct28",
+      "forecast_id": "fc_scn_permissions_oct28",
+      "source_id": "src_scn_update_notes",
+      "quote": "Approved: permissions service delivery moves from October 21, 2026 to October 28, 2026. Owner: Priya. This replaces decision DEC-12."
+    },
+    {
+      "op": "add_decision",
+      "decision": {
+        "id": "dec_scn_identity_slip",
+        "summary": "Competing forecast recorded from a slip note.",
+        "decided_at": "2026-10-12T10:00:00+05:30",
+        "status": "approved",
+        "revises_work_item_id": "wi_identity_migration",
+        "supersedes_id": null,
+        "source_id": "src_scn_slip_notes",
+        "quote": "Identity migration might also slip to October 25, 2026."
+      }
+    },
+    {
+      "op": "add_forecast",
+      "forecast": {
+        "id": "fc_scn_identity_slip",
+        "work_item_id": "wi_identity_migration",
+        "available_at": "2026-10-25",
+        "valid_from": "2026-10-12T10:00:00+05:30",
+        "valid_to": null,
+        "status": "accepted",
+        "established_by_decision_id": "dec_scn_identity_slip",
+        "source_id": "src_scn_slip_notes",
+        "quote": "Identity migration might also slip to October 25, 2026."
+      }
+    }
+  ],
+  "expected": {
+    "import": "accepted",
+    "queries": [
+      {
+        "as_of": "2026-10-17T15:00:00+05:30",
+        "impacts": {
+          "com_acme_sso": {
+            "customer_id": "cust_acme",
+            "status": "date_conflict",
+            "blocker_work_item_ids": [
+              "wi_permissions"
+            ],
+            "engineering_owner_id": "person_priya",
+            "account_owner_id": "person_maya",
+            "warnings": [
+              "conflicting_forecasts"
+            ]
+          },
+          "com_birch_audit": {
+            "customer_id": "cust_birch",
+            "status": "date_conflict",
+            "blocker_work_item_ids": [
+              "wi_permissions"
+            ],
+            "engineering_owner_id": "person_priya",
+            "account_owner_id": "person_nisha",
+            "warnings": []
+          },
+          "com_cedar_export": {
+            "customer_id": "cust_cedar",
+            "status": "no_detected_conflict",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_eli",
+            "account_owner_id": "person_leo",
+            "warnings": []
+          },
+          "com_delta_sso": {
+            "customer_id": "cust_delta",
+            "status": "needs_verification",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_lena",
+            "account_owner_id": "person_noah",
+            "warnings": [
+              "conflicting_forecasts"
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

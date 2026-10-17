@@ -1,0 +1,57 @@
+{
+  "id": "scn_missing_requirement",
+  "description": "Cedar's REQUIRES edge is removed: the open commitment is still returned, as needs_verification.",
+  "base": "harbor_baseline",
+  "operations": [
+    {
+      "op": "remove_relationship",
+      "type": "REQUIRES",
+      "from_id": "com_cedar_export",
+      "to_id": "wi_export"
+    }
+  ],
+  "expected": {
+    "import": "accepted",
+    "queries": [
+      {
+        "as_of": "2026-10-17T15:00:00+05:30",
+        "impacts": {
+          "com_acme_sso": {
+            "customer_id": "cust_acme",
+            "status": "no_detected_conflict",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_lena",
+            "account_owner_id": "person_maya",
+            "warnings": []
+          },
+          "com_birch_audit": {
+            "customer_id": "cust_birch",
+            "status": "no_detected_conflict",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_omar",
+            "account_owner_id": "person_nisha",
+            "warnings": []
+          },
+          "com_cedar_export": {
+            "customer_id": "cust_cedar",
+            "status": "needs_verification",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": null,
+            "account_owner_id": "person_leo",
+            "warnings": [
+              "missing_requirement"
+            ]
+          },
+          "com_delta_sso": {
+            "customer_id": "cust_delta",
+            "status": "no_detected_conflict",
+            "blocker_work_item_ids": [],
+            "engineering_owner_id": "person_lena",
+            "account_owner_id": "person_noah",
+            "warnings": []
+          }
+        }
+      }
+    ]
+  }
+}

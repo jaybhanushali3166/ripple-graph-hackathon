@@ -23,7 +23,9 @@ aliases.json: {alias, kind, candidate_ids, ambiguous}; ambiguous means more than
 Expected files: per-commitment {customer_id, status, blocker_work_item_ids,
 engineering_owner_id, account_owner_id, warnings}. Warning codes are fixture-level
 labels: missing_forecast, conflicting_forecasts, missing_engineering_owner,
-ambiguous_engineering_owner, depth_limit_exceeded. A scenario may add truncated: true.
+ambiguous_engineering_owner, depth_limit_exceeded, missing_requirement, missing_customer.
+A scenario may add truncated: true. Conflicting forecasts (several active accepted forecasts
+for one work item) are never a confirmed blocker, even if one of them is past due.
 expected/history.json uses <placeholders> for server-generated IDs and the preview time.
 
 Scenario overlays (expected/scenarios/*.json): {id, description, base, added_sources?,
@@ -238,9 +240,14 @@ def impact(ds, commitment_id, as_of_iso):
     as_of = instant_ms(as_of_iso)
     commitment = next(c for c in ds.commitments if c["id"] == commitment_id)
     due = to_ms(commitment["due_at"])
-    customer = ds.edges("HAS_COMMITMENT", to_id=commitment_id)[0]["from_id"]
+    customers = ds.edges("HAS_COMMITMENT", to_id=commitment_id)
+    customer = customers[0]["from_id"] if customers else None
     roots = sorted(r["to_id"] for r in ds.edges("REQUIRES", from_id=commitment_id))
     warnings, visited = set(), set()
+    if customer is None:
+        warnings.add("missing_customer")
+    if not roots:
+        warnings.add("missing_requirement")
 
     def walk(work_item, depth):
         visited.add(work_item)
@@ -268,14 +275,16 @@ def impact(ds, commitment_id, as_of_iso):
     subjects = sorted(blockers) or roots
     owner_sets = [{r["from_id"] for r in ds.edges("OWNS", to_id=w)} for w in subjects]
     engineering_owner = None
-    if any(not s for s in owner_sets):
+    if not subjects:
+        pass  # missing_requirement already explains this
+    elif any(not s for s in owner_sets):
         warnings.add("missing_engineering_owner")
     elif len(set().union(*owner_sets)) > 1:
         warnings.add("ambiguous_engineering_owner")
     else:
         engineering_owner = next(iter(owner_sets[0]))
-    account = [r["from_id"] for r in ds.edges("ACCOUNT_OWNER", to_id=customer)]
-    if len(account) != 1:
+    account = [r["from_id"] for r in ds.edges("ACCOUNT_OWNER", to_id=customer)] if customer else []
+    if customer and len(account) != 1:
         warnings.add("missing_account_owner")
 
     status = "date_conflict" if blockers else ("needs_verification" if warnings else "no_detected_conflict")
@@ -540,7 +549,8 @@ class ScenarioTests(FixtureCase):
         self.assertTrue({"scn_missing_forecast", "scn_conflicting_forecasts", "scn_missing_owner_no_blocker",
                          "scn_missing_owner_with_blocker", "scn_blockers_different_owners",
                          "scn_dependency_cycle", "scn_chain_too_deep", "scn_edge_removal_ablation",
-                         "scn_history_past_interval"} <= ids)
+                         "scn_history_past_interval", "scn_conflicting_forecast_past_due",
+                         "scn_conflicting_forecast_other_blocker", "scn_missing_requirement"} <= ids)
 
     def test_edge_removal_ablation_and_restore(self):
         scenarios = {s["id"]: s for s in self.scenarios()}
