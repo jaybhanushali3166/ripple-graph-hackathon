@@ -1,8 +1,13 @@
 """Pytest configuration and test environment setup."""
 
 import pytest
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from backend.app.graph.client import GraphClient
 from backend.app.graph.errors import GraphUnavailable
+from backend.app.services.graph_client import reset_graph_repository_cache
 from backend.app.settings import get_settings
 
 
@@ -17,13 +22,10 @@ def is_falkordb_reachable() -> bool:
 
 @pytest.fixture(autouse=True)
 def configure_test_environment(monkeypatch):
-    """If FalkorDB is not reachable, default offline tests to DEV_MOCKS=True.
-    
-    When FalkorDB is running, DEV_MOCKS=False runs against the live database.
+    """Default unit and route test suites to DEV_MOCKS=True for deterministic mock contract tests.
+
+    Live integration tests (like test_falkordb_live.py) explicitly override DEV_MOCKS=False.
     """
-    if not is_falkordb_reachable():
-        monkeypatch.setenv("DEV_MOCKS", "true")
-        get_settings.cache_clear()
-    else:
-        monkeypatch.setenv("DEV_MOCKS", "false")
-        get_settings.cache_clear()
+    monkeypatch.setenv("DEV_MOCKS", "true")
+    get_settings.cache_clear()
+    reset_graph_repository_cache()
