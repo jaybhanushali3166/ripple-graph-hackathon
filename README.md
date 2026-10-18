@@ -5,7 +5,7 @@
 
 **Live demo:** <https://ripple-graph-hackathon.onrender.com/>
 
-*Note: Live demo may take couple of seconds since it takes time in render deployments.
+**Note**: Live demo may take couple of seconds since it takes time in render deployments.
 ### 60-second tour
 
 1. **Reset demo** (top of the page). All four promises are on track.
